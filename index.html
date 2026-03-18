@@ -2,10 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Seguimiento de Composición Corporal</title>
 
   <!-- Chart.js + plugin de anotaciones -->
@@ -369,67 +366,153 @@
     Chart.defaults.plugins.title.color = '#e5e7eb';
     Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial';
 
-    /* ===============================
-       Plugin: Leyenda interna (esquina)
-       =============================== */
+    /* =========================================================
+       Plugin: Leyenda interna (esquina sup. izq) con anti-colisión
+       - No reserva padding (máximo ancho para TODAS las gráficas)
+       - Reubica la leyenda hacia abajo si detecta colisión con la curva
+       - Pasa a 2 columnas si la leyenda es muy ancha
+       ========================================================= */
     const cornerLegendPlugin = {
       id: 'cornerLegend',
-      afterDraw(chart, args, opts) {
+      afterDatasetsDraw(chart, args, opts) {
         const items = (opts && opts.items) || [];
         if (!items.length) return;
+
         const { ctx, chartArea } = chart;
         const padding = 6, gap = 6;
-        const boxW = (opts.boxWidth || 16);
-        const boxH = (opts.boxHeight || 12);
-        const fontSize = (opts.fontSize || 10);
+        const boxW = (opts.boxWidth || 14);
+        const boxH = (opts.boxHeight || 10);
+        const fontSize = (opts.fontSize || 9);
         const fontFamily = (opts.fontFamily || Chart.defaults.font.family);
-
-        let x = chartArea.left + 8;
-        let y = chartArea.top + 8;
+        const margin = 8;
+        const maxLegendWidth = 140; // si se pasa, se hace 2 columnas
 
         ctx.save();
         ctx.font = `${fontSize}px ${fontFamily}`;
-        let textMax = 0;
-        items.forEach(it => textMax = Math.max(textMax, ctx.measureText(it.label).width));
-        const width = padding*2 + boxW + gap + textMax;
-        const height = padding*2 + items.length * (Math.max(boxH, fontSize) + 4) - 4;
 
-        // Fondo oscuro translúcido
+        // calcular dimensiones con 1 columna
+        let textMax = 0;
+        items.forEach(it => { textMax = Math.max(textMax, ctx.measureText(it.label).width); });
+        let legendW = padding*2 + boxW + gap + textMax;
+        let legendH = padding*2 + items.length * (Math.max(boxH, fontSize) + 4) - 4;
+
+        // 2 columnas si excede ancho
+        let cols = 1;
+        let rows = items.length;
+        if (legendW > maxLegendWidth && items.length > 2) {
+          cols = 2;
+          rows = Math.ceil(items.length / cols);
+          const colWidths = [0,0];
+          for (let c=0;c<cols;c++){
+            const start = c*rows;
+            const end = Math.min(start+rows, items.length);
+            for (let i=start;i<end;i++){
+              colWidths[c] = Math.max(colWidths[c], ctx.measureText(items[i].label).width);
+            }
+          }
+          legendW = padding*2 + cols*boxW + cols*gap + (colWidths.reduce((a,b)=>a+b,0)) + (cols-1)*gap;
+          legendH = padding*2 + rows * (Math.max(boxH, fontSize) + 4) - 4;
+        }
+
+        // posición inicial (no reservamos padding)
+        let x = chartArea.left + margin;
+        let y = chartArea.top  + margin;
+
+        // Detectar colisión con puntos de la primera serie y mover hacia abajo si es necesario
+        const metas = chart.getDatasetMeta(0);
+        if (metas && metas.data) {
+          const maxPush = Math.min(chartArea.top + chartArea.height - legendH - margin, chartArea.top + 120); // límite
+          let iter = 0, collided = false;
+          do {
+            collided = false;
+            for (let el of metas.data) {
+              if (!el || !el.x || !el.y) continue;
+              if (el.x >= x && el.x <= x + legendW && el.y >= y && el.y <= y + legendH) {
+                collided = true;
+                y += 12; // empuja un poco
+                break;
+              }
+            }
+            iter++;
+          } while (collided && y < maxPush && iter < 20);
+        }
+
+        // Fondo
         const radius = 8;
-        ctx.fillStyle = 'rgba(3,7,18,0.84)'; // #030712 con alpha
+        ctx.fillStyle = 'rgba(3,7,18,0.84)'; // oscuro translúcido
         ctx.strokeStyle = '#334155';
         ctx.lineWidth = 1;
 
         ctx.beginPath();
         ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + width - radius, y);
-        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-        ctx.lineTo(x + width, y + height - radius);
-        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-        ctx.lineTo(x + radius, y + height);
-        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x + legendW - radius, y);
+        ctx.quadraticCurveTo(x + legendW, y, x + legendW, y + radius);
+        ctx.lineTo(x + legendW, y + legendH - radius);
+        ctx.quadraticCurveTo(x + legendW, y + legendH, x + legendW - radius, y + legendH);
+        ctx.lineTo(x + radius, y + legendH);
+        ctx.quadraticCurveTo(x, y + legendH, x, y + legendH - radius);
         ctx.lineTo(x, y + radius);
         ctx.quadraticCurveTo(x, y, x + radius, y);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
-        // Ítems
+        // Dibujar ítems (1 o 2 columnas)
         let cy = y + padding;
-        items.forEach(it => {
-          ctx.fillStyle = it.color;
-          ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-          ctx.lineWidth = 0.5;
-          ctx.beginPath();
-          ctx.rect(x + padding, cy, boxW, boxH);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = it.textColor || '#e5e7eb';
-          ctx.textBaseline = 'top';
-          ctx.fillText(it.label, x + padding + boxW + gap, cy - ((boxH - fontSize)/2));
-          cy += Math.max(boxH, fontSize) + 4;
-        });
+        if (cols === 1) {
+          items.forEach(it => {
+            // caja color
+            ctx.fillStyle = it.color;
+            ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.rect(x + padding, cy, boxW, boxH);
+            ctx.fill();
+            ctx.stroke();
+            // texto
+            ctx.fillStyle = it.textColor || '#e5e7eb';
+            ctx.textBaseline = 'top';
+            ctx.fillText(it.label, x + padding + boxW + gap, cy - ((boxH - fontSize)/2));
+            cy += Math.max(boxH, fontSize) + 4;
+          });
+        } else {
+          // 2 columnas
+          for (let r=0; r<rows; r++) {
+            const leftIdx  = r;
+            const rightIdx = r + rows;
+            // Izquierda
+            if (leftIdx < items.length) {
+              const it = items[leftIdx];
+              ctx.fillStyle = it.color;
+              ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+              ctx.lineWidth = 0.5;
+              ctx.beginPath();
+              ctx.rect(x + padding, cy, boxW, boxH);
+              ctx.fill(); ctx.stroke();
+              ctx.fillStyle = it.textColor || '#e5e7eb';
+              ctx.textBaseline = 'top';
+              ctx.fillText(it.label, x + padding + boxW + gap, cy - ((boxH - fontSize)/2));
+            }
+            // Derecha
+            if (rightIdx < items.length) {
+              const it2 = items[rightIdx];
+              // calcular x de la segunda columna
+              const col1TextW = ctx.measureText(items[leftIdx]?.label || '').width;
+              const col1W = padding + boxW + gap + col1TextW;
+              const x2 = x + col1W + gap + padding + gap; // padding y gap entre cols
+              ctx.fillStyle = it2.color;
+              ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+              ctx.lineWidth = 0.5;
+              ctx.beginPath();
+              ctx.rect(x2, cy, boxW, boxH);
+              ctx.fill(); ctx.stroke();
+              ctx.fillStyle = it2.textColor || '#e5e7eb';
+              ctx.textBaseline = 'top';
+              ctx.fillText(it2.label, x2 + boxW + gap, cy - ((boxH - fontSize)/2));
+            }
+            cy += Math.max(boxH, fontSize) + 4;
+          }
+        }
 
         ctx.restore();
       }
@@ -448,9 +531,6 @@
     let mediciones = [];
     let chartPeso = null, chartIMC = null, chartGrasa = null, chartMusculo = null;
     let chartFFMI = null, chartVO2Max = null, chartEdadMetabolica = null;
-
-    // Padding uniforme para TODAS las gráficas (mismo ancho útil)
-    const UNIFORM_PADDING = { left: 110, top: 10, right: 8, bottom: 8 };
 
     function showAlert(elementId, mensaje){
       const el = document.getElementById(elementId);
@@ -961,7 +1041,15 @@
       const grasas = mediciones.map(m => m.porcentajeGrasa);
       const musculos = mediciones.map(m => m.masaMuscular);
 
-      // ===== Peso (dinámico, padding uniforme) =====
+      const cCyan   = getComputedStyle(document.documentElement).getPropertyValue('--c-cyan').trim();
+      const cPink   = getComputedStyle(document.documentElement).getPropertyValue('--c-pink').trim();
+      const cRed    = getComputedStyle(document.documentElement).getPropertyValue('--c-red').trim();
+      const cGreen  = getComputedStyle(document.documentElement).getPropertyValue('--c-green').trim();
+      const cAmber  = getComputedStyle(document.documentElement).getPropertyValue('--c-amber').trim();
+      const cBlue   = getComputedStyle(document.documentElement).getPropertyValue('--c-blue').trim();
+      const cViolet = getComputedStyle(document.documentElement).getPropertyValue('--c-violet').trim();
+
+      // ===== Peso (dinámico, sin padding extra) =====
       const ctxPeso = document.getElementById('chartPeso').getContext('2d');
       if (chartPeso) chartPeso.destroy();
       const yPeso = computeYScale(pesos, 0.12);
@@ -970,19 +1058,19 @@
         data: { labels, datasets: [{
           label: 'Peso (kg)',
           data: pesos,
-          borderColor: getComputedStyle(document.documentElement).getPropertyValue('--c-cyan').trim(),
+          borderColor: cCyan,
           backgroundColor: 'rgba(0,229,255,0.12)',
           tension: .35, fill: true, pointRadius: 3.5, pointHoverRadius: 6, borderWidth: 3
         }]},
         options: {
           responsive: true, maintainAspectRatio: false,
-          layout: { padding: UNIFORM_PADDING },
+          layout: { padding: { left: 8, top: 8, right: 8, bottom: 8 } },
           plugins: { legend:{display:true,position:'top'}, title:{display:true,text:'Peso Corporal',font:{size:14,weight:'bold'}} },
           scales: { y: { ...yPeso } }
         }
       });
 
-      // ===== IMC (categorías, Y fijo, padding uniforme, leyenda interna) =====
+      // ===== IMC (categorías: Y fijo, leyenda interna, sin padding extra) =====
       if (perfil.altura){
         const imcValues = mediciones.map(m => calcularIMC(m.peso, perfil.altura));
         const ctxIMC = document.getElementById('chartIMC').getContext('2d');
@@ -992,12 +1080,12 @@
           data:{ labels, datasets:[{
             label:'IMC',
             data: imcValues,
-            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--c-pink').trim(),
+            borderColor: cPink,
             backgroundColor:'transparent', tension:.35, fill:false, pointRadius:4, pointHoverRadius:6, borderWidth:3
           }]},
           options:{
             responsive:true, maintainAspectRatio:false,
-            layout: { padding: UNIFORM_PADDING },
+            layout: { padding: { left: 8, top: 8, right: 8, bottom: 8 } },
             plugins:{
               legend:{display:true,position:'top'},
               title:{display:true,text:'IMC',font:{size:14,weight:'bold'}},
@@ -1012,7 +1100,7 @@
               },
               cornerLegend:{
                 items: getLegendItemsIMC(),
-                boxWidth:16, boxHeight:12, fontSize:10
+                boxWidth:14, boxHeight:10, fontSize:9
               }
             },
             scales:{ y:{ min:15, max:40 } }
@@ -1020,7 +1108,7 @@
         });
       }
 
-      // ===== % Grasa (dinámico, padding uniforme) =====
+      // ===== % Grasa (dinámico, sin padding extra) =====
       const ctxGrasa = document.getElementById('chartGrasa').getContext('2d');
       if (chartGrasa) chartGrasa.destroy();
       const yGrasa = computeYScale(grasas, 0.15);
@@ -1029,18 +1117,18 @@
         data:{ labels, datasets:[{
           label:'% Grasa Corporal',
           data: grasas,
-          borderColor: getComputedStyle(document.documentElement).getPropertyValue('--c-red').trim(),
+          borderColor: cRed,
           backgroundColor:'rgba(255,77,77,0.12)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6, borderWidth:3
         }]},
         options:{
           responsive:true, maintainAspectRatio:false,
-          layout: { padding: UNIFORM_PADDING },
+          layout: { padding: { left: 8, top: 8, right: 8, bottom: 8 } },
           plugins:{ legend:{display:true,position:'top'}, title:{display:true,text:'% de Grasa Corporal',font:{size:14,weight:'bold'}} },
           scales:{ y:{ ...yGrasa, ticks:{ callback:v => `${v}%` } } }
         }
       });
 
-      // ===== Masa Muscular (dinámico, padding uniforme) =====
+      // ===== Masa Muscular (dinámico, sin padding extra) =====
       const ctxMusculo = document.getElementById('chartMusculo').getContext('2d');
       if (chartMusculo) chartMusculo.destroy();
       const yMus = computeYScale(musculos, 0.12);
@@ -1049,18 +1137,18 @@
         data:{ labels, datasets:[{
           label:'Masa Muscular (kg)',
           data: musculos,
-          borderColor: getComputedStyle(document.documentElement).getPropertyValue('--c-green').trim(),
+          borderColor: cGreen,
           backgroundColor:'rgba(0,255,149,0.10)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6, borderWidth:3
         }]},
         options:{
           responsive:true, maintainAspectRatio:false,
-          layout: { padding: UNIFORM_PADDING },
+          layout: { padding: { left: 8, top: 8, right: 8, bottom: 8 } },
           plugins:{ legend:{display:true,position:'top'}, title:{display:true,text:'Masa Muscular',font:{size:14,weight:'bold'}} },
           scales:{ y:{ ...yMus } }
         }
       });
 
-      // ===== Edad Metabólica (dinámico, padding uniforme) =====
+      // ===== Edad Metabólica (dinámico, sin padding extra) =====
       if (perfil.altura && perfil.fechaNacimiento && perfil.genero){
         const edadReal = calcularEdad(perfil.fechaNacimiento);
         const edadesMet = mediciones.map(m => calcularEdadMetabolica(m.peso, perfil.altura, edadReal, perfil.genero, m.porcentajeGrasa));
@@ -1074,12 +1162,12 @@
             data:{ labels, datasets:[{
               label:'Edad Metabólica (estimada)',
               data: edadesMet,
-              borderColor: getComputedStyle(document.documentElement).getPropertyValue('--c-amber').trim(),
+              borderColor: cAmber,
               backgroundColor:'rgba(255,179,0,0.12)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6, borderWidth:3, spanGaps:true
             }]},
             options:{
               responsive:true, maintainAspectRatio:false,
-              layout: { padding: UNIFORM_PADDING },
+              layout: { padding: { left: 8, top: 8, right: 8, bottom: 8 } },
               plugins:{
                 legend:{display:true,position:'top'},
                 title:{display:true,text:'Edad Metabólica (estimada)',font:{size:14,weight:'bold'}},
@@ -1094,7 +1182,7 @@
         }
       }
 
-      // ===== VO2 Max (categorías, Y fijo, padding uniforme, leyenda interna) =====
+      // ===== VO2 Max (categorías: Y fijo, leyenda interna, sin padding extra) =====
       const vo2Data = mediciones.filter(m => m.vo2max != null && !isNaN(m.vo2max));
       if (vo2Data.length > 0 && perfil.fechaNacimiento && perfil.genero){
         const edad = calcularEdad(perfil.fechaNacimiento);
@@ -1108,24 +1196,24 @@
           data:{ labels: vo2Labels, datasets:[{
             label:'VO2 Max (ml/kg/min)',
             data: vo2Values,
-            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--c-blue').trim(),
+            borderColor: cBlue,
             backgroundColor:'transparent', tension:.35, fill:false, pointRadius:4, pointHoverRadius:6, borderWidth:3
           }]},
           options:{
             responsive:true, maintainAspectRatio:false,
-            layout: { padding: UNIFORM_PADDING },
+            layout: { padding: { left: 8, top: 8, right: 8, bottom: 8 } },
             plugins:{
               legend:{display:true,position:'top'},
               title:{display:true,text:'VO2 Max',font:{size:14,weight:'bold'}},
               annotation:{ annotations: vo2Annotations },
-              cornerLegend:{ items: getLegendItemsVO2(), boxWidth:16, boxHeight:12, fontSize:10 }
+              cornerLegend:{ items: getLegendItemsVO2(), boxWidth:14, boxHeight:10, fontSize:9 }
             },
             scales:{ y:{ min:20, max:60 } }
           }
         });
       }
 
-      // ===== FFMI (categorías, Y fijo, padding uniforme, leyenda interna) =====
+      // ===== FFMI (categorías: Y fijo, leyenda interna, sin padding extra) =====
       if (perfil.altura){
         const ffmiValues = mediciones.map(m => calcularFFMI(m.peso, m.porcentajeGrasa, perfil.altura));
         const ctxFFMI = document.getElementById('chartFFMI').getContext('2d');
@@ -1151,17 +1239,17 @@
           data:{ labels, datasets:[{
             label:'FFMI (Fat-Free Mass Index)',
             data: ffmiValues,
-            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--c-violet').trim(),
+            borderColor: cViolet,
             backgroundColor:'transparent', tension:.35, fill:false, pointRadius:4, pointHoverRadius:6, borderWidth:3
           }]},
           options:{
             responsive:true, maintainAspectRatio:false,
-            layout: { padding: UNIFORM_PADDING },
+            layout: { padding: { left: 8, top: 8, right: 8, bottom: 8 } },
             plugins:{
               legend:{display:true,position:'top'},
               title:{display:true,text:'FFMI (Índice de Masa Libre de Grasa)',font:{size:14,weight:'bold'}},
               annotation:{ annotations },
-              cornerLegend:{ items: getLegendItemsFFMI(), boxWidth:16, boxHeight:12, fontSize:10 }
+              cornerLegend:{ items: getLegendItemsFFMI(), boxWidth:14, boxHeight:10, fontSize:9 }
             },
             scales:{ y:{ min:10, max:(perfil.genero==='masculino'?30:28) } }
           }
