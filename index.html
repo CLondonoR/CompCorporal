@@ -108,3 +108,645 @@
     input:focus, select:focus{
       outline: none;
       border-color: #334155;
+      box-shadow: 0 0 0 3px rgba(100,149,237,.25);
+    }
+
+    button{
+      background: linear-gradient(135deg, var(--btn1) 0%, var(--btn2) 100%);
+      color: #001018;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+    }
+    button:hover{ filter: brightness(1.05); box-shadow: 0 8px 24px rgba(0,229,255,.2); }
+    button:active{ transform: scale(.98); }
+    .btn-danger{ background: linear-gradient(135deg, #ff3b3b 0%, #ff7a7a 100%); color: #1a0000; }
+
+    .alert{
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      font-size: .95rem;
+      border: 1px solid var(--border);
+    }
+    .alert-success{ background: rgba(16,185,129,.12); color: #a7f3d0; }
+    .alert-info{ background: rgba(59,130,246,.12); color: #bfdbfe; }
+    .hidden{ display:none; }
+
+    .data-table{
+      width: 100%;
+      border-collapse: collapse;
+      overflow-x: auto;
+      display: block;
+      border-radius: 12px;
+    }
+    .data-table th, .data-table td{
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+      color: var(--text);
+    }
+    .data-table th{
+      background: #0a0d13;
+      position: sticky; top: 0; z-index: 1;
+    }
+    .data-table tr:hover{ background: #0f131b; }
+
+    .stats-grid{
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+    @media (min-width:640px){ .stats-grid{ grid-template-columns: repeat(3,1fr); } }
+    @media (min-width:1024px){ .stats-grid{ grid-template-columns: repeat(5,1fr); } }
+
+    .stat-card{
+      background: #0a0d13;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    .stat-value{ font-size: 1.4rem; font-weight: 800; color: var(--c-cyan); }
+    .stat-label{ color: var(--muted); margin-top: 6px; font-size: .9rem; }
+
+    .analysis{
+      background: #0a0d13;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      line-height: 1.6;
+    }
+    .analysis h3{ color: var(--text); margin: 0 0 10px; font-size: 1.05rem; }
+    .analysis p{ margin: 8px 0; color: var(--text); }
+    .analysis ul{ margin: 8px 0 0 18px; color: var(--muted); }
+    .analysis li{ margin: 6px 0; }
+
+    .ffmi-highlight{
+      background: linear-gradient(135deg, #0b3c2f 0%, #0f543f 100%);
+      color: #c6ffee;
+      padding: 12px;
+      border-radius: 10px;
+      margin: 12px 0;
+      font-size: 1rem;
+      border: 1px solid #164e3d;
+    }
+    .bmr-highlight{
+      background: linear-gradient(135deg, #11283c 0%, #0f1930 100%);
+      color: #cde3ff;
+      padding: 12px;
+      border-radius: 10px;
+      margin: 12px 0;
+      font-size: 1rem;
+      border: 1px solid #1e2a44;
+    }
+    .calorie-range{
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(255,255,255,.06);
+      border-radius: 8px;
+    }
+
+    .charts-grid{
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 10px;
+    }
+    @media (min-width:768px){ .charts-grid{ grid-template-columns: repeat(2,1fr); } }
+
+    .chart-wrapper{ position: relative; }
+    .chart-container{ position: relative; height: 260px; }
+    @media (min-width:640px){ .chart-container{ height: 300px; } }
+    @media (min-width:768px){ .chart-container{ height: 340px; } }
+    @media (min-width:1024px){ .chart-container{ height: 380px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📊 Seguimiento de Composición Corporal</h1>
+      <p>Monitorea tu progreso físico de forma inteligente</p>
+    </div>
+
+    <div class="content">
+      <!-- Datos Personales -->
+      <div class="section">
+        <h2>👤 Datos Personales</h2>
+        <div id="profileAlert" class="alert alert-info hidden"></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Estatura (cm):</label>
+            <input type="number" id="altura" step="0.1" placeholder="175">
+          </div>
+          <div class="form-group">
+            <label>Fecha de Nacimiento:</label>
+            <input type="date" id="fechaNacimiento">
+          </div>
+          <div class="form-group">
+            <label>Género:</label>
+            <select id="genero">
+              <option value="">Seleccionar</option>
+              <option value="masculino">Masculino</option>
+              <option value="femenino">Femenino</option>
+            </select>
+          </div>
+        </div>
+        <button id="btnGuardarPerfil">💾 Guardar Perfil</button>
+        <p style="margin-top:8px; color:var(--muted); font-size:.95rem">
+          Tus datos se guardan en <strong>este dispositivo</strong> (localStorage).
+        </p>
+      </div>
+
+      <!-- Registrar Medición Diaria -->
+      <div class="section">
+        <h2>📝 Registrar Nueva Medición</h2>
+        <div id="measurementAlert" class="alert alert-success hidden"></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Fecha:</label>
+            <input type="date" id="fecha">
+          </div>
+          <div class="form-group">
+            <label>Peso (kg):</label>
+            <input type="number" id="peso" step="0.1" placeholder="70.5">
+          </div>
+          <div class="form-group">
+            <label>% Grasa Corporal:</label>
+            <input type="number" id="porcentajeGrasa" step="0.1" placeholder="15.5">
+          </div>
+          <div class="form-group">
+            <label>Masa Muscular (kg):</label>
+            <input type="number" id="masaMuscular" step="0.1" placeholder="55.0">
+          </div>
+          <div class="form-group">
+            <label>VO2 Max (ml/kg/min):</label>
+            <input type="number" id="vo2max" step="0.1" placeholder="45.0">
+          </div>
+        </div>
+        <button id="btnAgregarMedicion">➕ Agregar Medición</button>
+      </div>
+
+      <!-- Historial de Mediciones -->
+      <div class="section">
+        <h2>📋 Historial de Mediciones</h2>
+        <div id="tablaContainer"></div>
+      </div>
+
+      <!-- Gráficas -->
+      <div class="section">
+        <h2>📈 Evolución Temporal</h2>
+
+        <div class="charts-grid">
+          <div class="chart-wrapper">
+            <div class="chart-container"><canvas id="chartPeso"></canvas></div>
+          </div>
+          <div class="chart-wrapper">
+            <div class="chart-container"><canvas id="chartIMC"></canvas></div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-wrapper">
+            <div class="chart-container"><canvas id="chartGrasa"></canvas></div>
+          </div>
+          <div class="chart-wrapper">
+            <div class="chart-container"><canvas id="chartMusculo"></canvas></div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-wrapper">
+            <div class="chart-container"><canvas id="chartEdadMetabolica"></canvas></div>
+          </div>
+          <div class="chart-wrapper">
+            <div class="chart-container"><canvas id="chartVO2Max"></canvas></div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-wrapper">
+            <div class="chart-container"><canvas id="chartFFMI"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estadísticas -->
+      <div class="section">
+        <h2>📊 Estadísticas Actuales</h2>
+        <div id="statsContainer" class="stats-grid"></div>
+      </div>
+
+      <!-- Análisis y Conclusiones -->
+      <div class="section">
+        <h2>🎯 Análisis y Conclusiones</h2>
+        <div id="analisisContainer" class="analysis"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Registrar plugin de anotaciones si está presente (Chart.js v4)
+    if (window['chartjs-plugin-annotation']) {
+      Chart.register(window['chartjs-plugin-annotation']);
+    }
+
+    /* ===============================
+       Ajustes globales Chart.js (Dark)
+       =============================== */
+    Chart.defaults.color = '#e5e7eb';               // color de texto (ticks, legend, title)
+    Chart.defaults.borderColor = '#28313b';         // ejes
+    // Estilo de grids y ticks
+    Chart.defaults.scale.grid.color = '#1f2731';
+    Chart.defaults.scale.ticks.color = '#cbd5e1';
+    Chart.defaults.plugins.legend.labels.color = '#e5e7eb';
+    Chart.defaults.plugins.title.color = '#e5e7eb';
+    Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial';
+
+    /* ===============================
+       Plugin: Leyenda interna (esquina)
+       =============================== */
+    const cornerLegendPlugin = {
+      id: 'cornerLegend',
+      afterDraw(chart, args, opts) {
+        const items = (opts && opts.items) || [];
+        if (!items.length) return;
+        const { ctx, chartArea } = chart;
+        const padding = 6, gap = 6;
+        const boxW = (opts.boxWidth || 16);
+        const boxH = (opts.boxHeight || 12);
+        const fontSize = (opts.fontSize || 10);
+        const fontFamily = (opts.fontFamily || Chart.defaults.font.family);
+
+        let x = chartArea.left + 8;
+        let y = chartArea.top + 8;
+
+        ctx.save();
+        ctx.font = `${fontSize}px ${fontFamily}`;
+        let textMax = 0;
+        items.forEach(it => textMax = Math.max(textMax, ctx.measureText(it.label).width));
+        const width = padding*2 + boxW + gap + textMax;
+        const height = padding*2 + items.length * (Math.max(boxH, fontSize) + 4) - 4;
+
+        // Fondo oscuro translúcido
+        const radius = 8;
+        ctx.fillStyle = 'rgba(3,7,18,0.84)'; // #030712 con alpha
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1;
+
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Ítems
+        let cy = y + padding;
+        items.forEach(it => {
+          ctx.fillStyle = it.color;
+          ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.rect(x + padding, cy, boxW, boxH);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = it.textColor || '#e5e7eb';
+          ctx.textBaseline = 'top';
+          ctx.fillText(it.label, x + padding + boxW + gap, cy - ((boxH - fontSize)/2));
+          cy += Math.max(boxH, fontSize) + 4;
+        });
+
+        ctx.restore();
+      }
+    };
+    Chart.register(cornerLegendPlugin);
+
+    /* ======================================================
+       Almacenamiento: localStorage (dispositivo actual)
+       ====================================================== */
+    const STORAGE_KEYS = { perfil: 'perfil', mediciones: 'mediciones' };
+
+    /* ======================================================
+       Estado, utilidades y cálculos
+       ====================================================== */
+    let perfil = {};
+    let mediciones = [];
+    let chartPeso = null, chartIMC = null, chartGrasa = null, chartMusculo = null;
+    let chartFFMI = null, chartVO2Max = null, chartEdadMetabolica = null;
+
+    function showAlert(elementId, mensaje){
+      const el = document.getElementById(elementId);
+      el.textContent = mensaje;
+      el.classList.remove('hidden');
+      setTimeout(()=> el.classList.add('hidden'), 2500);
+    }
+
+    // Fechas locales (evita desfase)
+    function parseLocalDate(iso) {
+      if (!iso || typeof iso !== 'string' || !iso.includes('-')) return null;
+      const [y, m, d] = iso.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    function formatFechaTabla(iso){
+      const dt = parseLocalDate(iso);
+      return dt ? dt.toLocaleDateString('es-ES') : '';
+    }
+    function formatEtiquetaCorta(iso){
+      const dt = parseLocalDate(iso);
+      return dt ? dt.toLocaleDateString('es-ES',{day:'2-digit', month:'short'}) : '';
+    }
+
+    function calcularEdad(fechaNacimientoIso){
+      const n = parseLocalDate(fechaNacimientoIso);
+      if (!n) return null;
+      const hoy = new Date();
+      let edad = hoy.getFullYear() - n.getFullYear();
+      const mes = hoy.getMonth() - n.getMonth();
+      if (mes < 0 || (mes===0 && hoy.getDate() < n.getDate())) edad--;
+      return edad;
+    }
+
+    // FFMI Normalizado
+    function calcularFFMI(peso, porcentajeGrasa, altura){
+      const ffm = peso * (1 - porcentajeGrasa / 100);
+      const h = altura / 100;
+      const ffmi = ffm / (h*h);
+      return ffmi + 6.1 * (1.8 - h);
+    }
+
+    // BMR Mifflin
+    function calcularBMR(peso, altura, edad, genero){
+      return (genero === 'masculino')
+        ? (10*peso) + (6.25*altura) - (5*edad) + 5
+        : (10*peso) + (6.25*altura) - (5*edad) - 161;
+    }
+
+    // IMC
+    function calcularIMC(peso, altura){
+      const h = altura/100;
+      return peso / (h*h);
+    }
+
+    // Edad Metabólica (Katch–McArdle vs Mifflin)
+    function calcularEdadMetabolica(peso, altura, edadReal, genero, porcentajeGrasa){
+      if (!peso || !altura || !edadReal || !genero || porcentajeGrasa==null || isNaN(porcentajeGrasa)) return null;
+      const ffm = peso * (1 - porcentajeGrasa/100);
+      const bmrKatch = 370 + 21.6 * ffm;
+      const s = (genero === 'masculino') ? 5 : -161;
+      const edadEstim = (10*peso + 6.25*altura + s - bmrKatch) / 5;
+      return Math.round(Math.max(18, Math.min(90, edadEstim)));
+    }
+
+    // Y dinámico (solo para charts sin categorías)
+    function computeYScale(values, padding=0.08){
+      const arr = values.filter(v => typeof v === 'number' && !isNaN(v));
+      if (arr.length === 0) return {};
+      const min = Math.min(...arr), max = Math.max(...arr);
+      if (min === max) return { suggestedMin: min - 1, suggestedMax: max + 1 };
+      const range = max - min, pad = range*padding;
+      return { suggestedMin: Math.floor(min - pad), suggestedMax: Math.ceil(max + pad) };
+    }
+
+    // Leyendas de categorías (para plugin interno)
+    function getLegendItemsIMC(){
+      return [
+        { label: 'Peligro (35-40)', color:'rgba(102,16,242,0.35)' },
+        { label: 'Obesidad (30-35)', color:'rgba(220,53,69,0.35)' },
+        { label: 'Sobrepeso (25-30)', color:'rgba(255,152,0,0.35)' },
+        { label: 'Normal (20-25)',    color:'rgba(40,167,69,0.35)' },
+        { label: 'Bajo peso (15-20)', color:'rgba(255,193,7,0.35)' }
+      ];
+    }
+    function getLegendItemsFFMI(){
+      return [
+        { label:'Extremo',  color:'rgba(102,16,242,0.35)' },
+        { label:'Superior', color:'rgba(32,201,151,0.35)' },
+        { label:'Bueno',    color:'rgba(40,167,69,0.35)'  },
+        { label:'Promedio', color:'rgba(23,162,184,0.35)' }
+      ];
+    }
+    function getLegendItemsVO2(){
+      return [
+        { label:'Excelente', color:'rgba(32,201,151,0.35)' },
+        { label:'Bueno',     color:'rgba(40,167,69,0.35)'  },
+        { label:'Regular',   color:'rgba(255,193,7,0.35)'  },
+        { label:'Bajo',      color:'rgba(255,152,0,0.35)'  },
+        { label:'Muy bajo',  color:'rgba(220,53,69,0.35)'  }
+      ];
+    }
+
+    // Bandas VO2 (anotaciones)
+    function getVO2Annotations(edad, genero){
+      let a={};
+      if (genero === 'masculino'){
+        if (edad < 30){
+          a={ muyPobre:{type:'box',yMin:20,yMax:32,backgroundColor:'rgba(220,53,69,0.18)',borderWidth:0},
+              pobre:{type:'box',yMin:32,yMax:37,backgroundColor:'rgba(255,152,0,0.18)',borderWidth:0},
+              regular:{type:'box',yMin:37,yMax:43,backgroundColor:'rgba(255,193,7,0.18)',borderWidth:0},
+              bueno:{type:'box',yMin:43,yMax:52,backgroundColor:'rgba(40,167,69,0.18)',borderWidth:0},
+              excelente:{type:'box',yMin:52,yMax:60,backgroundColor:'rgba(32,201,151,0.18)',borderWidth:0} };
+        } else if (edad < 40){
+          a={ muyPobre:{yMin:20,yMax:30,type:'box',backgroundColor:'rgba(220,53,69,0.18)',borderWidth:0},
+              pobre:{yMin:30,yMax:35,type:'box',backgroundColor:'rgba(255,152,0,0.18)',borderWidth:0},
+              regular:{yMin:35,yMax:40,type:'box',backgroundColor:'rgba(255,193,7,0.18)',borderWidth:0},
+              bueno:{yMin:40,yMax:48,type:'box',backgroundColor:'rgba(40,167,69,0.18)',borderWidth:0},
+              excelente:{yMin:48,yMax:60,type:'box',backgroundColor:'rgba(32,201,151,0.18)',borderWidth:0} };
+        } else {
+          a={ muyPobre:{yMin:20,yMax:27,type:'box',backgroundColor:'rgba(220,53,69,0.18)',borderWidth:0},
+              pobre:{yMin:27,yMax:31,type:'box',backgroundColor:'rgba(255,152,0,0.18)',borderWidth:0},
+              regular:{yMin:31,yMax:36,type:'box',backgroundColor:'rgba(255,193,7,0.18)',borderWidth:0},
+              bueno:{yMin:36,yMax:44,type:'box',backgroundColor:'rgba(40,167,69,0.18)',borderWidth:0},
+              excelente:{yMin:44,yMax:60,type:'box',backgroundColor:'rgba(32,201,151,0.18)',borderWidth:0} };
+        }
+      } else {
+        if (edad < 30){
+          a={ muyPobre:{yMin:20,yMax:27,type:'box',backgroundColor:'rgba(220,53,69,0.18)',borderWidth:0},
+              pobre:{yMin:27,yMax:31,type:'box',backgroundColor:'rgba(255,152,0,0.18)',borderWidth:0},
+              regular:{yMin:31,yMax:37,type:'box',backgroundColor:'rgba(255,193,7,0.18)',borderWidth:0},
+              bueno:{yMin:37,yMax:43,type:'box',backgroundColor:'rgba(40,167,69,0.18)',borderWidth:0},
+              excelente:{yMin:43,yMax:60,type:'box',backgroundColor:'rgba(32,201,151,0.18)',borderWidth:0} };
+        } else if (edad < 40){
+          a={ muyPobre:{yMin:20,yMax:24,type:'box',backgroundColor:'rgba(220,53,69,0.18)',borderWidth:0},
+              pobre:{yMin:24,yMax:28,type:'box',backgroundColor:'rgba(255,152,0,0.18)',borderWidth:0},
+              regular:{yMin:28,yMax:33,type:'box',backgroundColor:'rgba(255,193,7,0.18)',borderWidth:0},
+              bueno:{yMin:33,yMax:40,type:'box',backgroundColor:'rgba(40,167,69,0.18)',borderWidth:0},
+              excelente:{yMin:40,yMax:60,type:'box',backgroundColor:'rgba(32,201,151,0.18)',borderWidth:0} };
+        } else {
+          a={ muyPobre:{yMin:20,yMax:21,type:'box',backgroundColor:'rgba(220,53,69,0.18)',borderWidth:0},
+              pobre:{yMin:21,yMax:25,type:'box',backgroundColor:'rgba(255,152,0,0.18)',borderWidth:0},
+              regular:{yMin:25,yMax:30,type:'box',backgroundColor:'rgba(255,193,7,0.18)',borderWidth:0},
+              bueno:{yMin:30,yMax:36,type:'box',backgroundColor:'rgba(40,167,69,0.18)',borderWidth:0},
+              excelente:{yMin:36,yMax:60,type:'box',backgroundColor:'rgba(32,201,151,0.18)',borderWidth:0} };
+        }
+      }
+      return a;
+    }
+
+    /* ======================================================
+       Carga/Guardado localStorage
+       ====================================================== */
+    function lsGet(key, def){ try{ const raw=localStorage.getItem(key); return raw?JSON.parse(raw):def; } catch { return def; } }
+    function lsSet(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+    async function cargarDatos(){
+      try{
+        perfil = lsGet(STORAGE_KEYS.perfil, {});
+        mediciones = lsGet(STORAGE_KEYS.mediciones, []);
+
+        document.getElementById('altura').value = perfil.altura || '';
+        document.getElementById('fechaNacimiento').value = perfil.fechaNacimiento || '';
+        document.getElementById('genero').value = perfil.genero || '';
+
+        mostrarTabla();
+        actualizarGraficas();
+        actualizarEstadisticas();
+        actualizarAnalisis();
+      }catch(e){ console.error('Error cargando datos', e); }
+    }
+
+    async function guardarPerfil(){
+      const altura = parseFloat(document.getElementById('altura').value);
+      const fechaNacimiento = document.getElementById('fechaNacimiento').value;
+      const genero = document.getElementById('genero').value;
+
+      if (!altura || !fechaNacimiento || !genero){
+        alert('Por favor completa todos los campos del perfil');
+        return;
+      }
+
+      perfil = { altura, fechaNacimiento, genero };
+      lsSet(STORAGE_KEYS.perfil, perfil);
+
+      showAlert('profileAlert','Perfil guardado exitosamente ✓');
+      actualizarEstadisticas();
+      actualizarAnalisis();
+      actualizarGraficas();
+    }
+
+    async function agregarMedicion(){
+      const fecha = document.getElementById('fecha').value;
+      const peso = parseFloat(document.getElementById('peso').value);
+      const porcentajeGrasa = parseFloat(document.getElementById('porcentajeGrasa').value);
+      const masaMuscular = parseFloat(document.getElementById('masaMuscular').value);
+      const vo2max = parseFloat(document.getElementById('vo2max').value);
+
+      if (!fecha || !peso || !porcentajeGrasa || !masaMuscular){
+        alert('Por favor completa al menos los campos obligatorios (fecha, peso, grasa, masa muscular)');
+        return;
+      }
+
+      const medicion = {
+        fecha, peso, porcentajeGrasa, masaMuscular,
+        vo2max: isNaN(vo2max)? null : vo2max,
+        id: Date.now()
+      };
+
+      mediciones.push(medicion);
+      mediciones.sort((a,b)=> a.fecha.localeCompare(b.fecha));
+      lsSet(STORAGE_KEYS.mediciones, mediciones);
+
+      showAlert('measurementAlert','Medición agregada exitosamente ✓');
+
+      // limpiar inputs
+      document.getElementById('peso').value='';
+      document.getElementById('porcentajeGrasa').value='';
+      document.getElementById('masaMuscular').value='';
+      document.getElementById('vo2max').value='';
+
+      mostrarTabla();
+      actualizarGraficas();
+      actualizarEstadisticas();
+      actualizarAnalisis();
+    }
+
+    async function eliminarMedicion(id){
+      if (!confirm('¿Estás seguro de eliminar esta medición?')) return;
+      mediciones = mediciones.filter(m => m.id !== id);
+      lsSet(STORAGE_KEYS.mediciones, mediciones);
+      mostrarTabla();
+      actualizarGraficas();
+      actualizarEstadisticas();
+      actualizarAnalisis();
+    }
+
+    /* ======================================================
+       Tabla, estadísticas, análisis y gráficas
+       ====================================================== */
+    function mostrarTabla(){
+      const container = document.getElementById('tablaContainer');
+      if (mediciones.length === 0){
+        container.innerHTML = '<p style="text-align:center;color:#9ca3af;">No hay mediciones registradas aún.</p>';
+        return;
+      }
+
+      let html = '<table class="data-table"><thead><tr>';
+      html += '<th>Fecha</th><th>Peso (kg)</th><th>% Grasa</th><th>Masa Muscular (kg)</th><th>VO2 Max</th>';
+      if (perfil.altura) html += '<th>IMC</th><th>FFMI</th>';
+      html += '<th>Acción</th></tr></thead><tbody>';
+
+      mediciones.slice().reverse().forEach(m=>{
+        const imc = perfil.altura ? calcularIMC(m.peso, perfil.altura).toFixed(1) : 'N/A';
+        const ffmi = perfil.altura ? calcularFFMI(m.peso, m.porcentajeGrasa, perfil.altura).toFixed(1) : 'N/A';
+        const vo2 = (m.vo2max==null || isNaN(m.vo2max)) ? '-' : m.vo2max.toFixed(1);
+        html += `
+          <tr>
+            <td>${formatFechaTabla(m.fecha)}</td>
+            <td>${m.peso.toFixed(1)}</td>
+            <td>${m.porcentajeGrasa.toFixed(1)}%</td>
+            <td>${m.masaMuscular.toFixed(1)}</td>
+            <td>${vo2}</td>
+            ${perfil.altura ? `<td>${imc}</td><td>${ffmi}</td>` : ''}
+            <td><button class="btn-danger" onclick="eliminarMedicion(${m.id})">🗑️ Eliminar</button></td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function actualizarEstadisticas(){
+      const c = document.getElementById('statsContainer');
+      if (mediciones.length === 0){
+        c.innerHTML = '<p style="text-align:center;color:#9ca3af;">Agrega mediciones para ver estadísticas.</p>';
+        return;
+      }
+
+      const u = mediciones[mediciones.length - 1];
+      const imc = perfil.altura ? calcularIMC(u.peso, perfil.altura).toFixed(1) : 'N/A';
+      const edad = perfil.fechaNacimiento ? calcularEdad(perfil.fechaNacimiento) : 'N/A';
+      const ffmi = perfil.altura ? calcularFFMI(u.peso, u.porcentajeGrasa, perfil.altura).toFixed(1) : 'N/A';
+      const vo2 = (u.vo2max==null || isNaN(u.vo2max)) ? 'N/A' : u.vo2max.toFixed(1);
+
+      let bmr = 'N/A';
+      if (perfil.altura && perfil.fechaNacimiento && perfil.genero){
+        const edadNum = calcularEdad(perfil.fechaNacimiento);
+        if (edadNum != null) bmr = Math.round(calcularBMR(u.peso, perfil.altura, edadNum, perfil.genero));
+      }
+
+      let edadMetabolica = 'N/A';
+      if (perfil.altura && perfil.fechaNacimiento && perfil.genero && u.porcentajeGrasa != null){
+        const edadNum = calcularEdad(perfil.fechaNacimiento);
+        const em = calcularEdadMetabolica(u.peso, perfil.altura, edadNum, perfil.genero, u.porcentajeGrasa);
+        edadMetabolica = (em==null) ? 'N/A' : em;
+      }
+
+      let html = `
+        <div class="stat-card"><div class="stat-value" style="color:var(--c-cyan)">${u.peso.toFixed(1)}</div><div class="stat-label">Peso Actual (kg)</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--c-red)">${u.porcentajeGrasa.toFixed(1)}%</div><div class="stat-label">% Grasa</div></div>
