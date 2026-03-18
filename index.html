@@ -8,8 +8,8 @@
   />
   <title>Seguimiento de Composición Corporal</title>
 
-  <!-- Chart.js + plugin de anotaciones -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <!-- Chart.js + plugin de anotaciones (correctamente enlazados) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 
   <style>
@@ -97,12 +97,6 @@
       box-shadow: 0 0 0 3px rgba(102,126,234,.15);
     }
 
-    .row-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
     button {
       background: linear-gradient(135deg, var(--primary1) 0%, var(--primary2) 100%);
       color: #fff;
@@ -116,9 +110,7 @@
       touch-action: manipulation;
     }
     button:active { transform: scale(.98); }
-    button:hover {
-      box-shadow: 0 6px 18px rgba(102,126,234,.35);
-    }
+    button:hover { box-shadow: 0 6px 18px rgba(102,126,234,.35); }
     .btn-danger { background: #dc3545; }
 
     .alert {
@@ -177,7 +169,6 @@
     }
     .analysis h3 { color: var(--primary1); margin: 0 0 10px; font-size: 1.05rem; }
     .analysis p { margin: 8px 0; }
-
     .analysis ul { margin: 8px 0 0 18px; }
     .analysis li { margin: 6px 0; }
 
@@ -433,14 +424,28 @@
       setTimeout(() => alert.classList.add('hidden'), 2500);
     }
 
-    function calcularEdad(fechaNacimiento) {
-      if (!fechaNacimiento) return null;
+    // 👇👇 Evita desfases de fecha por zona horaria
+    function parseLocalDate(iso) {
+      if (!iso || typeof iso !== 'string' || !iso.includes('-')) return null;
+      const [y, m, d] = iso.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    function formatFechaTabla(iso) {
+      const dt = parseLocalDate(iso);
+      return dt ? dt.toLocaleDateString('es-ES') : '';
+    }
+    function formatEtiquetaCorta(iso) {
+      const dt = parseLocalDate(iso);
+      return dt ? dt.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : '';
+    }
+
+    function calcularEdad(fechaNacimientoIso) {
+      const nacimiento = parseLocalDate(fechaNacimientoIso);
+      if (!nacimiento) return null;
       const hoy = new Date();
-      const n = new Date(fechaNacimiento);
-      if (isNaN(n)) return null;
-      let edad = hoy.getFullYear() - n.getFullYear();
-      const mes = hoy.getMonth() - n.getMonth();
-      if (mes < 0 || (mes === 0 && hoy.getDate() < n.getDate())) edad--;
+      let edad = hoy.getFullYear() - nacimiento.getFullYear();
+      const mes = hoy.getMonth() - nacimiento.getMonth();
+      if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--;
       return edad;
     }
 
@@ -481,9 +486,7 @@
       if (arr.length === 0) return {};
       const min = Math.min(...arr);
       const max = Math.max(...arr);
-      if (min === max) {
-        return { suggestedMin: min - 1, suggestedMax: max + 1 };
-      }
+      if (min === max) return { suggestedMin: min - 1, suggestedMax: max + 1 };
       const range = max - min;
       const pad = range * padding;
       return { suggestedMin: Math.floor(min - pad), suggestedMax: Math.ceil(max + pad) };
@@ -561,7 +564,7 @@
 
     async function guardarPerfil() {
       const altura = parseFloat(document.getElementById('altura').value);
-      const fechaNacimiento = document.getElementById('fechaNacimiento').value;
+      const fechaNacimiento = document.getElementById('fechaNacimiento').value; // ISO YYYY-MM-DD
       const genero = document.getElementById('genero').value;
 
       if (!altura || !fechaNacimiento || !genero) {
@@ -579,7 +582,7 @@
     }
 
     async function agregarMedicion() {
-      const fecha = document.getElementById('fecha').value;
+      const fecha = document.getElementById('fecha').value; // ISO YYYY-MM-DD
       const peso = parseFloat(document.getElementById('peso').value);
       const porcentajeGrasa = parseFloat(document.getElementById('porcentajeGrasa').value);
       const masaMuscular = parseFloat(document.getElementById('masaMuscular').value);
@@ -591,13 +594,15 @@
       }
 
       const medicion = {
-        fecha, peso, porcentajeGrasa, masaMuscular,
+        fecha, // guardamos el ISO tal cual, sin convertir a Date
+        peso, porcentajeGrasa, masaMuscular,
         vo2max: isNaN(vo2max) ? null : vo2max,
         id: Date.now()
       };
 
       mediciones.push(medicion);
-      mediciones.sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+      // Ordenar por ISO (seguro y sin TZ)
+      mediciones.sort((a, b) => a.fecha.localeCompare(b.fecha));
       lsSet(STORAGE_KEYS.mediciones, mediciones);
 
       showAlert('measurementAlert', 'Medición agregada exitosamente ✓');
@@ -645,7 +650,7 @@
         const vo2 = (m.vo2max == null || isNaN(m.vo2max)) ? '-' : m.vo2max.toFixed(1);
         html += `
           <tr>
-            <td>${new Date(m.fecha).toLocaleDateString('es-ES')}</td>
+            <td>${formatFechaTabla(m.fecha)}</td>
             <td>${m.peso.toFixed(1)}</td>
             <td>${m.porcentajeGrasa.toFixed(1)}%</td>
             <td>${m.masaMuscular.toFixed(1)}</td>
@@ -902,7 +907,7 @@
     function actualizarGraficas() {
       if (mediciones.length === 0) return;
 
-      const labels = mediciones.map(m => new Date(m.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }));
+      const labels = mediciones.map(m => formatEtiquetaCorta(m.fecha));
       const pesos = mediciones.map(m => m.peso);
       const grasas = mediciones.map(m => m.porcentajeGrasa);
       const musculos = mediciones.map(m => m.masaMuscular);
@@ -1009,7 +1014,7 @@
       const vo2Data = mediciones.filter(m => m.vo2max != null && !isNaN(m.vo2max));
       if (vo2Data.length > 0 && perfil.fechaNacimiento) {
         crearLeyendaVO2();
-        const vo2Labels = vo2Data.map(m => new Date(m.fecha).toLocaleDateString('es-ES', { day:'2-digit', month:'short' }));
+        const vo2Labels = vo2Data.map(m => formatEtiquetaCorta(m.fecha));
         const vo2Values = vo2Data.map(m => m.vo2max);
         const ctxVO2 = document.getElementById('chartVO2Max').getContext('2d');
         if (chartVO2Max) chartVO2Max.destroy();
@@ -1064,7 +1069,7 @@
        Inicio y eventos
        ====================================================== */
     window.addEventListener('load', async () => {
-      // Fecha por defecto: hoy
+      // Fecha por defecto: hoy (input type="date" usa ISO local; OK)
       const fechaInput = document.getElementById('fecha');
       if (fechaInput) fechaInput.valueAsDate = new Date();
 
