@@ -8,7 +8,7 @@
   />
   <title>Seguimiento de Composición Corporal</title>
 
-  <!-- Chart.js + plugin de anotaciones (enlaces correctos) -->
+  <!-- Chart.js + plugin de anotaciones -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 
@@ -146,6 +146,9 @@
       gap: 12px;
       margin-top: 12px;
     }
+    @media (min-width: 640px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 1024px) { .stats-grid { grid-template-columns: repeat(5, 1fr); } }
+
     .stat-card {
       background: #fff;
       border-radius: 12px;
@@ -201,49 +204,14 @@
       gap: 16px;
       margin-top: 10px;
     }
+    @media (min-width: 768px) { .charts-grid { grid-template-columns: repeat(2, 1fr); } }
+
     .chart-wrapper { position: relative; }
-
-    /* ✅ La leyenda ya no se superpone al gráfico */
-    .chart-legend {
-      position: static;           /* antes: absolute */
-      background: rgba(255,255,255,.96);
-      padding: 8px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.12);
-      font-size: 10px;
-      font-weight: 700;
-      border: 1px solid #e5e7eb;
-      margin: 0 0 6px 0;          /* deja espacio sobre el canvas */
-      pointer-events: none;       /* no intercepta toques/clicks */
-    }
-    .legend-item { margin: 4px 0; display: flex; align-items: center; gap: 6px; }
-    .legend-color {
-      width: 16px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,.1);
-    }
-
-    /* Alturas de gráficos (móvil primero) */
     .chart-container { position: relative; height: 260px; }
+    @media (min-width: 640px) { .chart-container { height: 300px; } }
+    @media (min-width: 768px) { .chart-container { height: 340px; } }
+    @media (min-width: 1024px) { .chart-container { height: 380px; } }
 
-    /* ===========
-       BREAKPOINTS
-       =========== */
-    @media (min-width: 640px) {
-      .form-grid { grid-template-columns: repeat(2, 1fr); }
-      .stats-grid { grid-template-columns: repeat(3, 1fr); }
-      .chart-container { height: 300px; }
-    }
-    @media (min-width: 768px) {
-      .content { padding: 20px; }
-      .section { padding: 18px; }
-      .charts-grid { grid-template-columns: repeat(2, 1fr); }
-      .chart-container { height: 340px; }
-      .header h1 { font-size: 2rem; }
-    }
-    @media (min-width: 1024px) {
-      .chart-container { height: 380px; }
-      .stats-grid { grid-template-columns: repeat(5, 1fr); }
-      .form-grid { grid-template-columns: repeat(3, 1fr); }
-    }
   </style>
 </head>
 <body>
@@ -278,8 +246,7 @@
         </div>
         <button id="btnGuardarPerfil">💾 Guardar Perfil</button>
         <p style="margin-top:8px; color:#374151; font-size:.95rem">
-          Tus datos se guardan en <strong>este dispositivo</strong> (localStorage).  
-          Si abres la app en otro dispositivo o navegador, empezarás con un almacenamiento vacío.
+          Tus datos se guardan en <strong>este dispositivo</strong> (localStorage).
         </p>
       </div>
 
@@ -330,7 +297,6 @@
             </div>
           </div>
           <div class="chart-wrapper">
-            <div id="imcLegend" class="chart-legend"></div>
             <div class="chart-container">
               <canvas id="chartIMC"></canvas>
             </div>
@@ -359,7 +325,6 @@
             </div>
           </div>
           <div class="chart-wrapper">
-            <div id="vo2Legend" class="chart-legend"></div>
             <div class="chart-container">
               <canvas id="chartVO2Max"></canvas>
             </div>
@@ -369,7 +334,6 @@
         <!-- FFMI -->
         <div class="charts-grid">
           <div class="chart-wrapper">
-            <div id="ffmiLegend" class="chart-legend"></div>
             <div class="chart-container">
               <canvas id="chartFFMI"></canvas>
             </div>
@@ -396,6 +360,81 @@
     if (window['chartjs-plugin-annotation']) {
       Chart.register(window['chartjs-plugin-annotation']);
     }
+
+    /* ===============================
+       Plugin: Leyenda en esquina (in-chart)
+       =============================== */
+    const cornerLegendPlugin = {
+      id: 'cornerLegend',
+      afterDraw(chart, args, opts) {
+        const items = (opts && opts.items) || [];
+        if (!items.length) return;
+
+        const { ctx, chartArea } = chart;
+        const padding = 6;
+        const gap = 6;
+        const boxW = (opts.boxWidth || 16);
+        const boxH = (opts.boxHeight || 12);
+        const fontSize = (opts.fontSize || 10);
+        const fontFamily = (opts.fontFamily || (Chart.defaults.font && Chart.defaults.font.family) || 'sans-serif');
+
+        // Posición: top-left (aseguramos con layout.padding en cada chart)
+        let x = chartArea.left + 6;
+        let y = chartArea.top + 6;
+
+        ctx.save();
+        ctx.font = `${fontSize}px ${fontFamily}`;
+
+        // Calcular ancho máximo de texto
+        let textMax = 0;
+        items.forEach(it => { textMax = Math.max(textMax, ctx.measureText(it.label).width); });
+
+        const width = padding*2 + boxW + gap + textMax;
+        const height = padding*2 + items.length * (Math.max(boxH, fontSize) + 4) - 4;
+
+        // Fondo semi-transparente con bordes redondeados
+        const radius = 8;
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Dibujar ítems
+        let cy = y + padding;
+        items.forEach(it => {
+          // Caja de color
+          ctx.fillStyle = it.color;
+          ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.rect(x + padding, cy, boxW, boxH);
+          ctx.fill();
+          ctx.stroke();
+
+          // Texto
+          ctx.fillStyle = it.textColor || '#111827';
+          ctx.textBaseline = 'top';
+          ctx.fillText(it.label, x + padding + boxW + gap, cy - ((boxH - fontSize)/2));
+          cy += Math.max(boxH, fontSize) + 4;
+        });
+
+        ctx.restore();
+      }
+    };
+    Chart.register(cornerLegendPlugin);
 
     /* ======================================================
        Almacenamiento: localStorage (dispositivo actual)
@@ -425,7 +464,7 @@
       setTimeout(() => alert.classList.add('hidden'), 2500);
     }
 
-    // 👇👇 Fechas sin desfase por zona horaria (local)
+    // Fechas (local, sin desfase)
     function parseLocalDate(iso) {
       if (!iso || typeof iso !== 'string' || !iso.includes('-')) return null;
       const [y, m, d] = iso.split('-').map(Number);
@@ -481,680 +520,6 @@
       return Math.round(Math.max(18, Math.min(90, edadEstim)));
     }
 
-    // Escalado Y dinámico para gráficos (solo para charts sin categorías)
+    // Escalado Y dinámico para gráficos (solo charts sin categorías)
     function computeYScale(values, padding = 0.08) {
       const arr = values.filter(v => typeof v === 'number' && !isNaN(v));
-      if (arr.length === 0) return {};
-      const min = Math.min(...arr);
-      const max = Math.max(...arr);
-      if (min === max) return { suggestedMin: min - 1, suggestedMax: max + 1 };
-      const range = max - min;
-      const pad = range * padding;
-      return { suggestedMin: Math.floor(min - pad), suggestedMax: Math.ceil(max + pad) };
-    }
-
-    // Leyendas (IMC, FFMI, VO2)
-    function crearLeyendaIMC() {
-      const legend = document.getElementById('imcLegend');
-      legend.innerHTML = `
-        <div class="legend-item"><div class="legend-color" style="background: rgba(102, 16, 242, 0.4);"></div><span style="color:#3d0066">Peligro (35-40)</span></div>
-        <div class="legend-item"><div class="legend-color" style="background: rgba(220, 53, 69, 0.4);"></div><span style="color:#721c24">Obesidad (30-35)</span></div>
-        <div class="legend-item"><div class="legend-color" style="background: rgba(255, 152, 0, 0.4);"></div><span style="color:#8B4000">Sobrepeso (25-30)</span></div>
-        <div class="legend-item"><div class="legend-color" style="background: rgba(40, 167, 69, 0.4);"></div><span style="color:#155724">Normal (20-25)</span></div>
-        <div class="legend-item"><div class="legend-color" style="background: rgba(255, 193, 7, 0.4);"></div><span style="color:#856404">Bajo peso (15-20)</span></div>
-      `;
-    }
-
-    function crearLeyendaFFMI() {
-      const legend = document.getElementById('ffmiLegend');
-      const labels = ['Extremo', 'Superior', 'Bueno', 'Promedio'];
-      const colors = ['rgba(102,16,242,0.4)', 'rgba(32,201,151,0.4)', 'rgba(40,167,69,0.4)', 'rgba(23,162,184,0.4)'];
-      const textColors = ['#3d0066', '#0a5a4a', '#155724', '#0c5460'];
-      legend.innerHTML = labels.map((l,i) => `
-        <div class="legend-item">
-          <div class="legend-color" style="background:${colors[i]}"></div>
-          <span style="color:${textColors[i]}">${l}</span>
-        </div>
-      `).join('');
-    }
-
-    function crearLeyendaVO2() {
-      const legend = document.getElementById('vo2Legend');
-      const labels = ['Excelente', 'Bueno', 'Regular', 'Bajo', 'Muy bajo'];
-      const colors = [
-        'rgba(32,201,151,0.4)',
-        'rgba(40,167,69,0.4)',
-        'rgba(255,193,7,0.4)',
-        'rgba(255,152,0,0.4)',
-        'rgba(220,53,69,0.4)'
-      ];
-      const textColors = ['#0a5a4a','#155724','#856404','#8B4000','#721c24'];
-      legend.innerHTML = labels.map((l,i) => `
-        <div class="legend-item">
-          <div class="legend-color" style="background:${colors[i]}"></div>
-          <span style="color:${textColors[i]}">${l}</span>
-        </div>
-      `).join('');
-    }
-
-    // ✅ Bandas de VO2 según edad y género (devuelve objeto de anotaciones)
-    function getVO2Annotations(edad, genero) {
-      // Definimos umbrales por tramo de edad y género (ml/kg/min)
-      // y construimos bandas de color para cada categoría.
-      // Rango total se muestra en Y: 20 - 60 para ver todas las categorías.
-      let a = {};
-      if (genero === 'masculino') {
-        if (edad < 30) {
-          a = {
-            muyPobre: { type:'box', yMin:20, yMax:32, backgroundColor:'rgba(220,53,69,0.15)', borderWidth:0 },
-            pobre:    { type:'box', yMin:32, yMax:37, backgroundColor:'rgba(255,152,0,0.15)', borderWidth:0 },
-            regular:  { type:'box', yMin:37, yMax:43, backgroundColor:'rgba(255,193,7,0.15)', borderWidth:0 },
-            bueno:    { type:'box', yMin:43, yMax:52, backgroundColor:'rgba(40,167,69,0.15)',  borderWidth:0 },
-            excelente:{ type:'box', yMin:52, yMax:60, backgroundColor:'rgba(32,201,151,0.15)', borderWidth:0 }
-          };
-        } else if (edad < 40) {
-          a = {
-            muyPobre: { type:'box', yMin:20, yMax:30, backgroundColor:'rgba(220,53,69,0.15)', borderWidth:0 },
-            pobre:    { type:'box', yMin:30, yMax:35, backgroundColor:'rgba(255,152,0,0.15)', borderWidth:0 },
-            regular:  { type:'box', yMin:35, yMax:40, backgroundColor:'rgba(255,193,7,0.15)', borderWidth:0 },
-            bueno:    { type:'box', yMin:40, yMax:48, backgroundColor:'rgba(40,167,69,0.15)',  borderWidth:0 },
-            excelente:{ type:'box', yMin:48, yMax:60, backgroundColor:'rgba(32,201,151,0.15)', borderWidth:0 }
-          };
-        } else {
-          a = {
-            muyPobre: { type:'box', yMin:20, yMax:27, backgroundColor:'rgba(220,53,69,0.15)', borderWidth:0 },
-            pobre:    { type:'box', yMin:27, yMax:31, backgroundColor:'rgba(255,152,0,0.15)', borderWidth:0 },
-            regular:  { type:'box', yMin:31, yMax:36, backgroundColor:'rgba(255,193,7,0.15)', borderWidth:0 },
-            bueno:    { type:'box', yMin:36, yMax:44, backgroundColor:'rgba(40,167,69,0.15)',  borderWidth:0 },
-            excelente:{ type:'box', yMin:44, yMax:60, backgroundColor:'rgba(32,201,151,0.15)', borderWidth:0 }
-          };
-        }
-      } else {
-        if (edad < 30) {
-          a = {
-            muyPobre: { type:'box', yMin:20, yMax:27, backgroundColor:'rgba(220,53,69,0.15)', borderWidth:0 },
-            pobre:    { type:'box', yMin:27, yMax:31, backgroundColor:'rgba(255,152,0,0.15)', borderWidth:0 },
-            regular:  { type:'box', yMin:31, yMax:37, backgroundColor:'rgba(255,193,7,0.15)', borderWidth:0 },
-            bueno:    { type:'box', yMin:37, yMax:43, backgroundColor:'rgba(40,167,69,0.15)',  borderWidth:0 },
-            excelente:{ type:'box', yMin:43, yMax:60, backgroundColor:'rgba(32,201,151,0.15)', borderWidth:0 }
-          };
-        } else if (edad < 40) {
-          a = {
-            muyPobre: { type:'box', yMin:20, yMax:24, backgroundColor:'rgba(220,53,69,0.15)', borderWidth:0 },
-            pobre:    { type:'box', yMin:24, yMax:28, backgroundColor:'rgba(255,152,0,0.15)', borderWidth:0 },
-            regular:  { type:'box', yMin:28, yMax:33, backgroundColor:'rgba(255,193,7,0.15)', borderWidth:0 },
-            bueno:    { type:'box', yMin:33, yMax:40, backgroundColor:'rgba(40,167,69,0.15)',  borderWidth:0 },
-            excelente:{ type:'box', yMin:40, yMax:60, backgroundColor:'rgba(32,201,151,0.15)', borderWidth:0 }
-          };
-        } else {
-          a = {
-            muyPobre: { type:'box', yMin:20, yMax:21, backgroundColor:'rgba(220,53,69,0.15)', borderWidth:0 },
-            pobre:    { type:'box', yMin:21, yMax:25, backgroundColor:'rgba(255,152,0,0.15)', borderWidth:0 },
-            regular:  { type:'box', yMin:25, yMax:30, backgroundColor:'rgba(255,193,7,0.15)', borderWidth:0 },
-            bueno:    { type:'box', yMin:30, yMax:36, backgroundColor:'rgba(40,167,69,0.15)',  borderWidth:0 },
-            excelente:{ type:'box', yMin:36, yMax:60, backgroundColor:'rgba(32,201,151,0.15)', borderWidth:0 }
-          };
-        }
-      }
-      return a;
-    }
-
-    /* ======================================================
-       Carga/Guardado en localStorage
-       ====================================================== */
-    function lsGet(key, def) {
-      try {
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : def;
-      } catch { return def; }
-    }
-    function lsSet(key, val) {
-      localStorage.setItem(key, JSON.stringify(val));
-    }
-
-    async function cargarDatos() {
-      try {
-        perfil = lsGet(STORAGE_KEYS.perfil, {});
-        mediciones = lsGet(STORAGE_KEYS.mediciones, []);
-
-        // Poblamos UI
-        document.getElementById('altura').value = perfil.altura || '';
-        document.getElementById('fechaNacimiento').value = perfil.fechaNacimiento || '';
-        document.getElementById('genero').value = perfil.genero || '';
-
-        mostrarTabla();
-        actualizarGraficas();
-        actualizarEstadisticas();
-        actualizarAnalisis();
-      } catch (e) {
-        console.error('Error cargando datos', e);
-      }
-    }
-
-    async function guardarPerfil() {
-      const altura = parseFloat(document.getElementById('altura').value);
-      const fechaNacimiento = document.getElementById('fechaNacimiento').value; // ISO YYYY-MM-DD
-      const genero = document.getElementById('genero').value;
-
-      if (!altura || !fechaNacimiento || !genero) {
-        alert('Por favor completa todos los campos del perfil');
-        return;
-      }
-
-      perfil = { altura, fechaNacimiento, genero };
-      lsSet(STORAGE_KEYS.perfil, perfil);
-
-      showAlert('profileAlert', 'Perfil guardado exitosamente ✓');
-      actualizarEstadisticas();
-      actualizarAnalisis();
-      actualizarGraficas();
-    }
-
-    async function agregarMedicion() {
-      const fecha = document.getElementById('fecha').value; // ISO YYYY-MM-DD
-      const peso = parseFloat(document.getElementById('peso').value);
-      const porcentajeGrasa = parseFloat(document.getElementById('porcentajeGrasa').value);
-      const masaMuscular = parseFloat(document.getElementById('masaMuscular').value);
-      const vo2max = parseFloat(document.getElementById('vo2max').value);
-
-      if (!fecha || !peso || !porcentajeGrasa || !masaMuscular) {
-        alert('Por favor completa al menos los campos obligatorios (fecha, peso, grasa, masa muscular)');
-        return;
-      }
-
-      const medicion = {
-        fecha, // guardamos ISO sin convertir a Date (evita TZ)
-        peso, porcentajeGrasa, masaMuscular,
-        vo2max: isNaN(vo2max) ? null : vo2max,
-        id: Date.now()
-      };
-
-      mediciones.push(medicion);
-      // Ordenar por ISO (seguro y sin TZ)
-      mediciones.sort((a, b) => a.fecha.localeCompare(b.fecha));
-      lsSet(STORAGE_KEYS.mediciones, mediciones);
-
-      showAlert('measurementAlert', 'Medición agregada exitosamente ✓');
-
-      // Limpiar formulario
-      document.getElementById('peso').value = '';
-      document.getElementById('porcentajeGrasa').value = '';
-      document.getElementById('masaMuscular').value = '';
-      document.getElementById('vo2max').value = '';
-
-      mostrarTabla();
-      actualizarGraficas();
-      actualizarEstadisticas();
-      actualizarAnalisis();
-    }
-
-    async function eliminarMedicion(id) {
-      if (!confirm('¿Estás seguro de eliminar esta medición?')) return;
-      mediciones = mediciones.filter(m => m.id !== id);
-      lsSet(STORAGE_KEYS.mediciones, mediciones);
-      mostrarTabla();
-      actualizarGraficas();
-      actualizarEstadisticas();
-      actualizarAnalisis();
-    }
-
-    /* ======================================================
-       Tabla, estadísticas, análisis y gráficas
-       ====================================================== */
-    function mostrarTabla() {
-      const container = document.getElementById('tablaContainer');
-      if (mediciones.length === 0) {
-        container.innerHTML = '<p style="text-align:center;color:#666;">No hay mediciones registradas aún.</p>';
-        return;
-      }
-
-      let html = '<table class="data-table"><thead><tr>';
-      html += '<th>Fecha</th><th>Peso (kg)</th><th>% Grasa</th><th>Masa Muscular (kg)</th><th>VO2 Max</th>';
-      if (perfil.altura) html += '<th>IMC</th><th>FFMI</th>';
-      html += '<th>Acción</th></tr></thead><tbody>';
-
-      mediciones.slice().reverse().forEach(m => {
-        const imc = perfil.altura ? calcularIMC(m.peso, perfil.altura).toFixed(1) : 'N/A';
-        const ffmi = perfil.altura ? calcularFFMI(m.peso, m.porcentajeGrasa, perfil.altura).toFixed(1) : 'N/A';
-        const vo2 = (m.vo2max == null || isNaN(m.vo2max)) ? '-' : m.vo2max.toFixed(1);
-        html += `
-          <tr>
-            <td>${formatFechaTabla(m.fecha)}</td>
-            <td>${m.peso.toFixed(1)}</td>
-            <td>${m.porcentajeGrasa.toFixed(1)}%</td>
-            <td>${m.masaMuscular.toFixed(1)}</td>
-            <td>${vo2}</td>
-            ${perfil.altura ? `<td>${imc}</td><td>${ffmi}</td>` : ''}
-            <td><button class="btn-danger" onclick="eliminarMedicion(${m.id})">🗑️ Eliminar</button></td>
-          </tr>
-        `;
-      });
-
-      html += '</tbody></table>';
-      container.innerHTML = html;
-    }
-
-    function actualizarEstadisticas() {
-      const c = document.getElementById('statsContainer');
-      if (mediciones.length === 0) {
-        c.innerHTML = '<p style="text-align:center;color:#666;">Agrega mediciones para ver estadísticas.</p>';
-        return;
-      }
-      const u = mediciones[mediciones.length - 1];
-
-      const imc = perfil.altura ? calcularIMC(u.peso, perfil.altura).toFixed(1) : 'N/A';
-      const edad = perfil.fechaNacimiento ? calcularEdad(perfil.fechaNacimiento) : 'N/A';
-      const ffmi = perfil.altura ? calcularFFMI(u.peso, u.porcentajeGrasa, perfil.altura).toFixed(1) : 'N/A';
-      const vo2 = (u.vo2max == null || isNaN(u.vo2max)) ? 'N/A' : u.vo2max.toFixed(1);
-
-      // BMR
-      let bmr = 'N/A';
-      if (perfil.altura && perfil.fechaNacimiento && perfil.genero) {
-        const edadNum = calcularEdad(perfil.fechaNacimiento);
-        if (edadNum != null) bmr = Math.round(calcularBMR(u.peso, perfil.altura, edadNum, perfil.genero));
-      }
-
-      // Edad Metabólica (estimada)
-      let edadMetabolica = 'N/A';
-      if (perfil.altura && perfil.fechaNacimiento && perfil.genero && u.porcentajeGrasa != null) {
-        const edadNum = calcularEdad(perfil.fechaNacimiento);
-        const em = calcularEdadMetabolica(u.peso, perfil.altura, edadNum, perfil.genero, u.porcentajeGrasa);
-        edadMetabolica = (em == null) ? 'N/A' : em;
-      }
-
-      let html = `
-        <div class="stat-card"><div class="stat-value">${u.peso.toFixed(1)}</div><div class="stat-label">Peso Actual (kg)</div></div>
-        <div class="stat-card"><div class="stat-value">${u.porcentajeGrasa.toFixed(1)}%</div><div class="stat-label">Grasa Corporal</div></div>
-        <div class="stat-card"><div class="stat-value">${u.masaMuscular.toFixed(1)}</div><div class="stat-label">Masa Muscular (kg)</div></div>
-        <div class="stat-card"><div class="stat-value">${imc}</div><div class="stat-label">IMC</div></div>
-        <div class="stat-card"><div class="stat-value">${ffmi}</div><div class="stat-label">FFMI</div></div>
-        <div class="stat-card"><div class="stat-value">${vo2}</div><div class="stat-label">VO2 Max</div></div>
-        <div class="stat-card"><div class="stat-value">${bmr}</div><div class="stat-label">BMR (kcal/día)</div></div>
-        <div class="stat-card"><div class="stat-value">${edadMetabolica}</div><div class="stat-label">Edad Metabólica (estimada)</div></div>
-        <div class="stat-card"><div class="stat-value">${edad}</div><div class="stat-label">Edad (años)</div></div>
-      `;
-
-      if (mediciones.length > 1) {
-        const p = mediciones[0];
-        const cambio = (u.peso - p.peso).toFixed(1);
-        const signo = (parseFloat(cambio) >= 0 ? '+' : '');
-        html += `
-          <div class="stat-card">
-            <div class="stat-value">${signo}${cambio}</div>
-            <div class="stat-label">Cambio Total (kg)</div>
-          </div>
-        `;
-      }
-      c.innerHTML = html;
-    }
-
-    function actualizarAnalisis() {
-      const container = document.getElementById('analisisContainer');
-      if (mediciones.length === 0 || !perfil.altura) {
-        container.innerHTML = '<p style="color:#666;">Completa tu perfil y agrega mediciones para obtener un análisis personalizado.</p>';
-        return;
-      }
-
-      const u = mediciones[mediciones.length - 1];
-      const imc = calcularIMC(u.peso, perfil.altura);
-      const edad = perfil.fechaNacimiento ? calcularEdad(perfil.fechaNacimiento) : null;
-      const ffmi = calcularFFMI(u.peso, u.porcentajeGrasa, perfil.altura);
-
-      let html = '<h3>📋 Evaluación General</h3>';
-
-      // IMC
-      let catIMC = '', colIMC = '';
-      if (imc < 20) { catIMC = 'Bajo peso'; colIMC = '#ffc107'; }
-      else if (imc < 25) { catIMC = 'Normal'; colIMC = '#28a745'; }
-      else if (imc < 30) { catIMC = 'Sobrepeso'; colIMC = '#ff9800'; }
-      else if (imc < 35) { catIMC = 'Obesidad'; colIMC = '#dc3545'; }
-      else { catIMC = 'Peligro'; colIMC = '#6610f2'; }
-      html += `<p><strong>Índice de Masa Corporal (IMC):</strong> ${imc.toFixed(1)} - <span style="color:${colIMC};font-weight:700">${catIMC}</span></p>`;
-
-      // BMR/TDEE
-      if (edad != null) {
-        const bmr = calcularBMR(u.peso, perfil.altura, edad, perfil.genero);
-        const tdee = bmr * 1.55;
-        const deficitMin = Math.round(tdee - 500);
-        const deficitMax = Math.round(tdee - 300);
-        const deficitProm = Math.round((deficitMin + deficitMax) / 2);
-        const superavitMin = Math.round(tdee + 200);
-        const superavitMax = Math.round(tdee + 400);
-        const superavitProm = Math.round((superavitMin + superavitMax) / 2);
-        const mantenimiento = Math.round(tdee);
-
-        html += `<div class="bmr-highlight">
-          <strong>🔥 Metabolismo Basal (BMR):</strong> ${Math.round(bmr)} kcal/día<br>
-          <strong>Gasto Energético Diario (TDEE):</strong> ${mantenimiento} kcal/día
-          <div class="calorie-range">
-            <strong>Recomendaciones calóricas:</strong><br>
-            📉 <strong>Perder grasa:</strong> ${deficitMin}-${deficitMax} kcal/día (promedio: ${deficitProm})<br>
-            ⚖️ <strong>Mantenimiento:</strong> ${mantenimiento} kcal/día<br>
-            📈 <strong>Ganar músculo:</strong> ${superavitMin}-${superavitMax} kcal/día (promedio: ${superavitProm})
-          </div>
-        </div>`;
-      }
-
-      // FFMI
-      let catFFMI = '', colFFMI = '', descFFMI = '';
-      if (perfil.genero === 'masculino') {
-        if (ffmi < 15) { catFFMI = 'Promedio'; colFFMI = '#17a2b8'; descFFMI = 'Rango promedio para hombres sedentarios.'; }
-        else if (ffmi < 20) { catFFMI = 'Bueno'; colFFMI = '#28a745'; descFFMI = 'Buena cantidad de masa muscular.'; }
-        else if (ffmi < 25) { catFFMI = 'Superior'; colFFMI = '#20c997'; descFFMI = 'Nivel de atleta de élite natural.'; }
-        else { catFFMI = 'Extremo'; colFFMI = '#6610f2'; descFFMI = 'Muy raro de alcanzar de forma natural.'; }
-      } else {
-        if (ffmi < 15) { catFFMI = 'Promedio'; colFFMI = '#17a2b8'; descFFMI = 'Rango promedio para mujeres sedentarias.'; }
-        else if (ffmi < 20) { catFFMI = 'Bueno'; colFFMI = '#28a745'; descFFMI = 'Buena cantidad de masa muscular.'; }
-        else if (ffmi < 25) { catFFMI = 'Superior'; colFFMI = '#20c997'; descFFMI = 'Nivel de atleta de élite natural.'; }
-        else { catFFMI = 'Extremo'; colFFMI = '#6610f2'; descFFMI = 'Muy raro de alcanzar de forma natural.'; }
-      }
-      html += `<div class="ffmi-highlight">
-        <strong>🏋️ FFMI:</strong> ${ffmi.toFixed(1)}<br>
-        <strong>Clasificación:</strong> <span style="color:${colFFMI}">${catFFMI}</span><br>
-        <small>${descFFMI}</small>
-      </div>`;
-
-      // VO2 Max (texto)
-      if (u.vo2max != null && !isNaN(u.vo2max) && edad != null) {
-        let catVO2 = '', colVO2 = '';
-        if (perfil.genero === 'masculino') {
-          if (edad < 30) {
-            if (u.vo2max < 32) { catVO2 = 'Muy bajo'; colVO2 = '#dc3545'; }
-            else if (u.vo2max < 37) { catVO2 = 'Bajo'; colVO2 = '#ff9800'; }
-            else if (u.vo2max < 43) { catVO2 = 'Regular'; colVO2 = '#ffc107'; }
-            else if (u.vo2max < 52) { catVO2 = 'Bueno'; colVO2 = '#28a745'; }
-            else { catVO2 = 'Excelente'; colVO2 = '#20c997'; }
-          } else if (edad < 40) {
-            if (u.vo2max < 30) { catVO2 = 'Muy bajo'; colVO2 = '#dc3545'; }
-            else if (u.vo2max < 35) { catVO2 = 'Bajo'; colVO2 = '#ff9800'; }
-            else if (u.vo2max < 40) { catVO2 = 'Regular'; colVO2 = '#ffc107'; }
-            else if (u.vo2max < 48) { catVO2 = 'Bueno'; colVO2 = '#28a745'; }
-            else { catVO2 = 'Excelente'; colVO2 = '#20c997'; }
-          } else {
-            if (u.vo2max < 27) { catVO2 = 'Muy bajo'; colVO2 = '#dc3545'; }
-            else if (u.vo2max < 31) { catVO2 = 'Bajo'; colVO2 = '#ff9800'; }
-            else if (u.vo2max < 36) { catVO2 = 'Regular'; colVO2 = '#ffc107'; }
-            else if (u.vo2max < 44) { catVO2 = 'Bueno'; colVO2 = '#28a745'; }
-            else { catVO2 = 'Excelente'; colVO2 = '#20c997'; }
-          }
-        } else {
-          if (edad < 30) {
-            if (u.vo2max < 27) { catVO2 = 'Muy bajo'; colVO2 = '#dc3545'; }
-            else if (u.vo2max < 31) { catVO2 = 'Bajo'; colVO2 = '#ff9800'; }
-            else if (u.vo2max < 37) { catVO2 = 'Regular'; colVO2 = '#ffc107'; }
-            else if (u.vo2max < 43) { catVO2 = 'Bueno'; colVO2 = '#28a745'; }
-            else { catVO2 = 'Excelente'; colVO2 = '#20c997'; }
-          } else if (edad < 40) {
-            if (u.vo2max < 24) { catVO2 = 'Muy bajo'; colVO2 = '#dc3545'; }
-            else if (u.vo2max < 28) { catVO2 = 'Bajo'; colVO2 = '#ff9800'; }
-            else if (u.vo2max < 33) { catVO2 = 'Regular'; colVO2 = '#ffc107'; }
-            else if (u.vo2max < 40) { catVO2 = 'Bueno'; colVO2 = '#28a745'; }
-            else { catVO2 = 'Excelente'; colVO2 = '#20c997'; }
-          } else {
-            if (u.vo2max < 21) { catVO2 = 'Muy bajo'; colVO2 = '#dc3545'; }
-            else if (u.vo2max < 25) { catVO2 = 'Bajo'; colVO2 = '#ff9800'; }
-            else if (u.vo2max < 30) { catVO2 = 'Regular'; colVO2 = '#ffc107'; }
-            else if (u.vo2max < 36) { catVO2 = 'Bueno'; colVO2 = '#28a745'; }
-            else { catVO2 = 'Excelente'; colVO2 = '#20c997'; }
-          }
-        }
-        html += `<p><strong>VO2 Max:</strong> ${u.vo2max.toFixed(1)} ml/kg/min - <span style="color:${colVO2};font-weight:700">${catVO2}</span></p>`;
-      }
-
-      // Grasa
-      let catGrasa = '';
-      if (perfil.genero === 'masculino') {
-        if (u.porcentajeGrasa < 6) catGrasa = 'Grasa esencial';
-        else if (u.porcentajeGrasa < 14) catGrasa = 'Atlético';
-        else if (u.porcentajeGrasa < 18) catGrasa = 'Fitness';
-        else if (u.porcentajeGrasa < 25) catGrasa = 'Aceptable';
-        else catGrasa = 'Alto';
-      } else {
-        if (u.porcentajeGrasa < 14) catGrasa = 'Grasa esencial';
-        else if (u.porcentajeGrasa < 21) catGrasa = 'Atlético';
-        else if (u.porcentajeGrasa < 25) catGrasa = 'Fitness';
-        else if (u.porcentajeGrasa < 32) catGrasa = 'Aceptable';
-        else catGrasa = 'Alto';
-      }
-      html += `<p><strong>Porcentaje de Grasa Corporal:</strong> ${u.porcentajeGrasa.toFixed(1)}% - ${catGrasa}</p>`;
-
-      // Tendencias
-      if (mediciones.length >= 3) {
-        html += '<h3>📊 Tendencias</h3>';
-        const r = mediciones.slice(-3);
-        const cambioGrasa = r[r.length-1].porcentajeGrasa - r[0].porcentajeGrasa;
-        const cambioMusculo = r[r.length-1].masaMuscular - r[0].masaMuscular;
-        const cambioPeso = r[r.length-1].peso - r[0].peso;
-        const ffmiInicial = calcularFFMI(r[0].peso, r[0].porcentajeGrasa, perfil.altura);
-        const ffmiFinal = calcularFFMI(r[r.length-1].peso, r[r.length-1].porcentajeGrasa, perfil.altura);
-        const cambioFFMI = ffmiFinal - ffmiInicial;
-
-        if (cambioGrasa < -0.5 && cambioMusculo > 0.2) {
-          html += '<p style="color:#28a745">✅ <strong>Excelente progreso:</strong> Menos grasa y más músculo. ¡Sigue así!</p>';
-        } else if (cambioGrasa > 0.5 && cambioMusculo < -0.2) {
-          html += '<p style="color:#dc3545">⚠️ <strong>Atención:</strong> Sube la grasa y baja el músculo. Revisa nutrición y entrenamiento.</p>';
-        } else if (cambioPeso < -0.5 && cambioMusculo > 0) {
-          html += '<p style="color:#28a745">✅ <strong>Recomposición corporal:</strong> Pierdes peso y ganas músculo.</p>';
-        } else if (Math.abs(cambioPeso) < 0.3) {
-          html += '<p style="color:#17a2b8">ℹ️ <strong>Mantenimiento:</strong> Peso estable. Revisa composición vs. objetivos.</p>';
-        }
-
-        if (cambioFFMI > 0.3) {
-          html += `<p style="color:#28a745">💪 <strong>FFMI en aumento:</strong> +${cambioFFMI.toFixed(1)} puntos.</p>`;
-        } else if (cambioFFMI < -0.3) {
-          html += `<p style="color:#dc3545">⚠️ <strong>FFMI en descenso:</strong> ${cambioFFMI.toFixed(1)} puntos. Refuerza proteína y fuerza.</p>`;
-        }
-
-        const vo2Recientes = r.filter(m => m.vo2max != null && !isNaN(m.vo2max));
-        if (vo2Recientes.length >= 2) {
-          const cambioVO2 = vo2Recientes[vo2Recientes.length-1].vo2max - r[0].vo2max;
-          if (cambioVO2 > 1) {
-            html += `<p style="color:#28a745">🏃 <strong>VO2 Max en aumento:</strong> +${cambioVO2.toFixed(1)} ml/kg/min.</p>`;
-          } else if (cambioVO2 < -1) {
-            html += `<p style="color:#dc3545">⚠️ <strong>VO2 Max en descenso:</strong> ${cambioVO2.toFixed(1)} ml/kg/min.</p>`;
-          }
-        }
-      }
-
-      // Recomendaciones
-      html += '<h3>💡 Recomendaciones</h3><ul>';
-      const imcVal = imc;
-      if (imcVal > 25) html += '<li>Déficit calórico moderado (300–500 kcal) para reducir peso saludablemente.</li>';
-      if (u.porcentajeGrasa > (perfil.genero === 'masculino' ? 20 : 28)) html += '<li>Cardio 3–4 veces/semana para optimizar la pérdida de grasa.</li>';
-      if (ffmi < (perfil.genero === 'masculino' ? 18 : 15)) html += '<li>Programa de fuerza progresivo para aumentar masa muscular.</li>';
-      if (u.vo2max != null && !isNaN(u.vo2max)) {
-        if ((perfil.genero === 'masculino' && u.vo2max < 40) || (perfil.genero === 'femenino' && u.vo2max < 35)) {
-          html += '<li>Mejora VO2 Max con HIIT 2–3 veces/semana.</li>';
-        }
-      }
-      html += '<li>Proteína 1.6–2.2 g/kg de peso corporal.</li>';
-      html += '<li>Registra mediciones consistentes para ajustar tu plan.</li>';
-      html += '</ul>';
-
-      container.innerHTML = html;
-    }
-
-    function actualizarGraficas() {
-      if (mediciones.length === 0) return;
-
-      const labels = mediciones.map(m => formatEtiquetaCorta(m.fecha));
-      const pesos = mediciones.map(m => m.peso);
-      const grasas = mediciones.map(m => m.porcentajeGrasa);
-      const musculos = mediciones.map(m => m.masaMuscular);
-
-      // ====== Peso (dinámico) ======
-      const ctxPeso = document.getElementById('chartPeso').getContext('2d');
-      if (chartPeso) chartPeso.destroy();
-      const yPeso = computeYScale(pesos, 0.12);
-      chartPeso = new Chart(ctxPeso, {
-        type: 'line',
-        data: { labels, datasets: [{ label: 'Peso (kg)', data: pesos, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,.12)', tension: .35, fill: true, pointRadius: 3.5, pointHoverRadius: 6, borderWidth: 3 }] },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: true, position: 'top' }, title: { display: true, text: 'Peso Corporal', font: { size: 14, weight: 'bold' } } },
-          scales: { y: { ...yPeso } }
-        }
-      });
-
-      // ====== IMC (con categorías: Y fijo) ======
-      if (perfil.altura) {
-        crearLeyendaIMC();
-        const imcValues = mediciones.map(m => calcularIMC(m.peso, perfil.altura));
-        const ctxIMC = document.getElementById('chartIMC').getContext('2d');
-        if (chartIMC) chartIMC.destroy();
-        chartIMC = new Chart(ctxIMC, {
-          type: 'line',
-          data: { labels, datasets: [{ label: 'IMC', data: imcValues, borderColor: '#1a0066', backgroundColor: 'transparent', tension: .35, fill: false, pointRadius: 4, pointHoverRadius: 6, borderWidth: 3 }] },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-              legend: { display: true, position: 'top' },
-              title: { display: true, text: 'IMC', font: { size: 14, weight: 'bold' } },
-              annotation: {
-                annotations: {
-                  bajoPeso: { type:'box', yMin:15, yMax:20, backgroundColor:'rgba(255,193,7,.12)', borderWidth:0 },
-                  normal:    { type:'box', yMin:20, yMax:25, backgroundColor:'rgba(40,167,69,.12)', borderWidth:0 },
-                  sobrepeso: { type:'box', yMin:25, yMax:30, backgroundColor:'rgba(255,152,0,.12)', borderWidth:0 },
-                  obesidad:  { type:'box', yMin:30, yMax:35, backgroundColor:'rgba(220,53,69,.12)', borderWidth:0 },
-                  peligro:   { type:'box', yMin:35, yMax:40, backgroundColor:'rgba(102,16,242,.12)', borderWidth:0 }
-                }
-              }
-            },
-            scales: { y: { min: 15, max: 40 } } /* fijo para ver todas las categorías */
-          }
-        });
-      }
-
-      // ====== % Grasa (dinámico) ======
-      const ctxGrasa = document.getElementById('chartGrasa').getContext('2d');
-      if (chartGrasa) chartGrasa.destroy();
-      const yGrasa = computeYScale(grasas, 0.15);
-      chartGrasa = new Chart(ctxGrasa, {
-        type: 'line',
-        data: { labels, datasets: [{ label: '% Grasa Corporal', data: grasas, borderColor: '#990000', backgroundColor: 'rgba(220,53,69,.10)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6, borderWidth:3 }] },
-        options: {
-          responsive:true, maintainAspectRatio:false,
-          plugins: { legend:{display:true,position:'top'}, title:{display:true,text:'% de Grasa Corporal',font:{size:14,weight:'bold'}} },
-          scales: { y: { ...yGrasa, ticks: { callback: v => `${v}%` } } }
-        }
-      });
-
-      // ====== Masa Muscular (dinámico) ======
-      const ctxMusculo = document.getElementById('chartMusculo').getContext('2d');
-      if (chartMusculo) chartMusculo.destroy();
-      const yMus = computeYScale(musculos, 0.12);
-      chartMusculo = new Chart(ctxMusculo, {
-        type: 'line',
-        data: { labels, datasets: [{ label: 'Masa Muscular (kg)', data: musculos, borderColor: '#006600', backgroundColor: 'rgba(40,167,69,.10)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6, borderWidth:3 }] },
-        options: {
-          responsive:true, maintainAspectRatio:false,
-          plugins: { legend:{display:true,position:'top'}, title:{display:true,text:'Masa Muscular',font:{size:14,weight:'bold'}} },
-          scales: { y: { ...yMus } }
-        }
-      });
-
-      // ====== Edad Metabólica (dinámico) ======
-      if (perfil.altura && perfil.fechaNacimiento && perfil.genero) {
-        const edadReal = calcularEdad(perfil.fechaNacimiento);
-        const edadesMet = mediciones.map(m => calcularEdadMetabolica(m.peso, perfil.altura, edadReal, perfil.genero, m.porcentajeGrasa));
-        const hay = edadesMet.some(v => v !== null);
-        if (hay) {
-          const ctxEdad = document.getElementById('chartEdadMetabolica').getContext('2d');
-          if (chartEdadMetabolica) chartEdadMetabolica.destroy();
-          const yEdad = computeYScale(edadesMet.filter(v => v != null), 0.12);
-          chartEdadMetabolica = new Chart(ctxEdad, {
-            type:'line',
-            data:{ labels, datasets:[{ label:'Edad Metabólica (estimada)', data:edadesMet, borderColor:'#e67e22', backgroundColor:'rgba(230,126,34,.10)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6, borderWidth:3, spanGaps:true }] },
-            options:{
-              responsive:true, maintainAspectRatio:false,
-              plugins:{
-                legend:{display:true,position:'top'},
-                title:{display:true,text:'Edad Metabólica (estimada)',font:{size:14,weight:'bold'}},
-                annotation:{ annotations:{ lineaEdadReal:{ type:'line', yMin:edadReal, yMax:edadReal, borderColor:'rgba(102,126,234,.85)', borderWidth:3, borderDash:[8,4],
-                  label:{ display:true, content:`Edad Real: ${edadReal} años`, position:'end', backgroundColor:'rgba(102,126,234,.85)', color:'#fff', font:{size:10,weight:'bold'} } } } }
-              },
-              scales:{ y:{ suggestedMin: Math.max(18, (yEdad.suggestedMin ?? (edadReal-15))), suggestedMax: Math.min(90, (yEdad.suggestedMax ?? (edadReal+15))) } }
-            }
-          });
-        }
-      }
-
-      // ====== VO2 Max (con categorías restauradas: Y fijo 20–60) ======
-      const vo2Data = mediciones.filter(m => m.vo2max != null && !isNaN(m.vo2max));
-      if (vo2Data.length > 0 && perfil.fechaNacimiento && perfil.genero) {
-        crearLeyendaVO2();
-        const edad = calcularEdad(perfil.fechaNacimiento);
-        const vo2Labels = vo2Data.map(m => formatEtiquetaCorta(m.fecha));
-        const vo2Values = vo2Data.map(m => m.vo2max);
-        const ctxVO2 = document.getElementById('chartVO2Max').getContext('2d');
-        if (chartVO2Max) chartVO2Max.destroy();
-        const vo2Annotations = getVO2Annotations(edad, perfil.genero);
-        chartVO2Max = new Chart(ctxVO2, {
-          type:'line',
-          data:{ labels: vo2Labels, datasets:[{ label:'VO2 Max (ml/kg/min)', data: vo2Values, borderColor:'#0044cc', backgroundColor:'transparent', tension:.35, fill:false, pointRadius:4, pointHoverRadius:6, borderWidth:3 }] },
-          options:{
-            responsive:true, maintainAspectRatio:false,
-            plugins:{
-              legend:{display:true,position:'top'},
-              title:{display:true,text:'VO2 Max',font:{size:14,weight:'bold'}},
-              annotation:{ annotations: vo2Annotations }
-            },
-            // ✅ Eje Y fijo para ver todas las categorías y sus bandas
-            scales:{ y:{ min:20, max:60 } }
-          }
-        });
-      }
-
-      // ====== FFMI (con categorías: Y fijo) ======
-      if (perfil.altura) {
-        crearLeyendaFFMI();
-        const ffmiValues = mediciones.map(m => calcularFFMI(m.peso, m.porcentajeGrasa, perfil.altura));
-        const ctxFFMI = document.getElementById('chartFFMI').getContext('2d');
-        if (chartFFMI) chartFFMI.destroy();
-        let annotations = {};
-        if (perfil.genero === 'masculino') {
-          annotations = {
-            promedio:{type:'box',yMin:10,yMax:15,backgroundColor:'rgba(23,162,184,.12)',borderWidth:0},
-            bueno:{type:'box',yMin:15,yMax:20,backgroundColor:'rgba(40,167,69,.12)',borderWidth:0},
-            superior:{type:'box',yMin:20,yMax:25,backgroundColor:'rgba(32,201,151,.12)',borderWidth:0},
-            extremo:{type:'box',yMin:25,yMax:30,backgroundColor:'rgba(102,16,242,.12)',borderWidth:0}
-          };
-        } else {
-          annotations = {
-            promedio:{type:'box',yMin:10,yMax:15,backgroundColor:'rgba(23,162,184,.12)',borderWidth:0},
-            bueno:{type:'box',yMin:15,yMax:20,backgroundColor:'rgba(40,167,69,.12)',borderWidth:0},
-            superior:{type:'box',yMin:20,yMax:25,backgroundColor:'rgba(32,201,151,.12)',borderWidth:0},
-            extremo:{type:'box',yMin:25,yMax:28,backgroundColor:'rgba(102,16,242,.12)',borderWidth:0}
-          };
-        }
-        chartFFMI = new Chart(ctxFFMI, {
-          type:'line',
-          data:{ labels, datasets:[{ label:'FFMI (Fat-Free Mass Index)', data: ffmiValues, borderColor:'#007755', backgroundColor:'transparent', tension:.35, fill:false, pointRadius:4, pointHoverRadius:6, borderWidth:3 }] },
-          options:{
-            responsive:true, maintainAspectRatio:false,
-            plugins:{ legend:{display:true,position:'top'}, title:{display:true,text:'FFMI (Índice de Masa Libre de Grasa)',font:{size:14,weight:'bold'}}, annotation:{annotations} },
-            // ✅ Eje Y fijo para mantener todas las categorías visibles
-            scales:{ y:{ min:10, max:(perfil.genero==='masculino'?30:28) } }
-          }
-        });
-      }
-    }
-
-    /* ======================================================
-       Inicio y eventos
-       ====================================================== */
-    window.addEventListener('load', async () => {
-      // Fecha por defecto: hoy (input type="date" usa ISO local)
-      const fechaInput = document.getElementById('fecha');
-      if (fechaInput) fechaInput.valueAsDate = new Date();
-
-      // Cargar datos
-      await cargarDatos();
-
-      // Botones
-      document.getElementById('btnGuardarPerfil').addEventListener('click', guardarPerfil);
-      document.getElementById('btnAgregarMedicion').addEventListener('click', agregarMedicion);
-    });
-  </script>
-</body>
-</html>
