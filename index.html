@@ -25,13 +25,13 @@
       --border:  #1f2937;         /* bordes sutiles */
 
       /* Colores eléctricos para líneas */
-      --c-cyan:  #00E5FF;
-      --c-pink:  #FF4DA6;
-      --c-red:   #FF4D4D;
-      --c-green: #00FF95;
-      --c-amber: #FFB300;
-      --c-blue:  #66CCFF;
-      --c-violet:#7C4DFF;
+      --c-cyan:  #00E5FF;  /* Peso */
+      --c-pink:  #FF4DA6;  /* IMC */
+      --c-red:   #FF4D4D;  /* % Grasa */
+      --c-green: #00FF95;  /* Masa Muscular */
+      --c-amber: #FFB300;  /* Edad Metabólica */
+      --c-blue:  #66CCFF;  /* VO2 Max */
+      --c-violet:#7C4DFF;  /* FFMI */
 
       /* Botones */
       --btn1: #0061ff;
@@ -363,7 +363,6 @@
        =============================== */
     Chart.defaults.color = '#e5e7eb';               // color de texto (ticks, legend, title)
     Chart.defaults.borderColor = '#28313b';         // ejes
-    // Estilo de grids y ticks
     Chart.defaults.scale.grid.color = '#1f2731';
     Chart.defaults.scale.ticks.color = '#cbd5e1';
     Chart.defaults.plugins.legend.labels.color = '#e5e7eb';
@@ -449,6 +448,9 @@
     let mediciones = [];
     let chartPeso = null, chartIMC = null, chartGrasa = null, chartMusculo = null;
     let chartFFMI = null, chartVO2Max = null, chartEdadMetabolica = null;
+
+    // Padding uniforme para TODAS las gráficas (mismo ancho útil)
+    const UNIFORM_PADDING = { left: 110, top: 10, right: 8, bottom: 8 };
 
     function showAlert(elementId, mensaje){
       const el = document.getElementById(elementId);
@@ -898,7 +900,6 @@
       }
       html += `<p><strong>% Grasa:</strong> ${u.porcentajeGrasa.toFixed(1)}% - ${catGrasa}</p>`;
 
-      // Tendencias y recomendaciones (igual que antes)
       if (mediciones.length >= 3){
         html += '<h3>📊 Tendencias</h3>';
         const r = mediciones.slice(-3);
@@ -960,7 +961,7 @@
       const grasas = mediciones.map(m => m.porcentajeGrasa);
       const musculos = mediciones.map(m => m.masaMuscular);
 
-      // ===== Peso (dinámico) =====
+      // ===== Peso (dinámico, padding uniforme) =====
       const ctxPeso = document.getElementById('chartPeso').getContext('2d');
       if (chartPeso) chartPeso.destroy();
       const yPeso = computeYScale(pesos, 0.12);
@@ -975,12 +976,13 @@
         }]},
         options: {
           responsive: true, maintainAspectRatio: false,
+          layout: { padding: UNIFORM_PADDING },
           plugins: { legend:{display:true,position:'top'}, title:{display:true,text:'Peso Corporal',font:{size:14,weight:'bold'}} },
           scales: { y: { ...yPeso } }
         }
       });
 
-      // ===== IMC (categorías: Y fijo + leyenda interna) =====
+      // ===== IMC (categorías, Y fijo, padding uniforme, leyenda interna) =====
       if (perfil.altura){
         const imcValues = mediciones.map(m => calcularIMC(m.peso, perfil.altura));
         const ctxIMC = document.getElementById('chartIMC').getContext('2d');
@@ -995,7 +997,7 @@
           }]},
           options:{
             responsive:true, maintainAspectRatio:false,
-            layout: { padding: { left: 110, top: 10 } },
+            layout: { padding: UNIFORM_PADDING },
             plugins:{
               legend:{display:true,position:'top'},
               title:{display:true,text:'IMC',font:{size:14,weight:'bold'}},
@@ -1018,7 +1020,7 @@
         });
       }
 
-      // ===== % Grasa (dinámico) =====
+      // ===== % Grasa (dinámico, padding uniforme) =====
       const ctxGrasa = document.getElementById('chartGrasa').getContext('2d');
       if (chartGrasa) chartGrasa.destroy();
       const yGrasa = computeYScale(grasas, 0.15);
@@ -1032,12 +1034,13 @@
         }]},
         options:{
           responsive:true, maintainAspectRatio:false,
+          layout: { padding: UNIFORM_PADDING },
           plugins:{ legend:{display:true,position:'top'}, title:{display:true,text:'% de Grasa Corporal',font:{size:14,weight:'bold'}} },
           scales:{ y:{ ...yGrasa, ticks:{ callback:v => `${v}%` } } }
         }
       });
 
-      // ===== Masa Muscular (dinámico) =====
+      // ===== Masa Muscular (dinámico, padding uniforme) =====
       const ctxMusculo = document.getElementById('chartMusculo').getContext('2d');
       if (chartMusculo) chartMusculo.destroy();
       const yMus = computeYScale(musculos, 0.12);
@@ -1051,12 +1054,13 @@
         }]},
         options:{
           responsive:true, maintainAspectRatio:false,
+          layout: { padding: UNIFORM_PADDING },
           plugins:{ legend:{display:true,position:'top'}, title:{display:true,text:'Masa Muscular',font:{size:14,weight:'bold'}} },
           scales:{ y:{ ...yMus } }
         }
       });
 
-      // ===== Edad Metabólica (dinámico) =====
+      // ===== Edad Metabólica (dinámico, padding uniforme) =====
       if (perfil.altura && perfil.fechaNacimiento && perfil.genero){
         const edadReal = calcularEdad(perfil.fechaNacimiento);
         const edadesMet = mediciones.map(m => calcularEdadMetabolica(m.peso, perfil.altura, edadReal, perfil.genero, m.porcentajeGrasa));
@@ -1075,6 +1079,7 @@
             }]},
             options:{
               responsive:true, maintainAspectRatio:false,
+              layout: { padding: UNIFORM_PADDING },
               plugins:{
                 legend:{display:true,position:'top'},
                 title:{display:true,text:'Edad Metabólica (estimada)',font:{size:14,weight:'bold'}},
@@ -1089,7 +1094,7 @@
         }
       }
 
-      // ===== VO2 Max (categorías: Y fijo + leyenda interna) =====
+      // ===== VO2 Max (categorías, Y fijo, padding uniforme, leyenda interna) =====
       const vo2Data = mediciones.filter(m => m.vo2max != null && !isNaN(m.vo2max));
       if (vo2Data.length > 0 && perfil.fechaNacimiento && perfil.genero){
         const edad = calcularEdad(perfil.fechaNacimiento);
@@ -1108,7 +1113,7 @@
           }]},
           options:{
             responsive:true, maintainAspectRatio:false,
-            layout:{ padding:{ left: 110, top: 10 } },
+            layout: { padding: UNIFORM_PADDING },
             plugins:{
               legend:{display:true,position:'top'},
               title:{display:true,text:'VO2 Max',font:{size:14,weight:'bold'}},
@@ -1120,7 +1125,7 @@
         });
       }
 
-      // ===== FFMI (categorías: Y fijo + leyenda interna) =====
+      // ===== FFMI (categorías, Y fijo, padding uniforme, leyenda interna) =====
       if (perfil.altura){
         const ffmiValues = mediciones.map(m => calcularFFMI(m.peso, m.porcentajeGrasa, perfil.altura));
         const ctxFFMI = document.getElementById('chartFFMI').getContext('2d');
@@ -1151,7 +1156,7 @@
           }]},
           options:{
             responsive:true, maintainAspectRatio:false,
-            layout:{ padding:{ left: 110, top: 10 } },
+            layout: { padding: UNIFORM_PADDING },
             plugins:{
               legend:{display:true,position:'top'},
               title:{display:true,text:'FFMI (Índice de Masa Libre de Grasa)',font:{size:14,weight:'bold'}},
